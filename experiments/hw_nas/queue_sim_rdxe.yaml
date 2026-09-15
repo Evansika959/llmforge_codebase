@@ -1,0 +1,30 @@
+# rDXE targets on the corrected rDXE backend of 2026-09-15, run on the simulator worker next to queue_sim.yaml.
+# The backend costs every active layer, keeps d_v, prices weights in on-chip WMEM for energy and time, and models
+# area and leakage per component. Runs of the earlier backend are in runs/search/_superseded_rdxe_v1.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_sim_rdxe.yaml
+#
+# Workload and objectives match queue_sim.yaml: 128 prompt tokens and 32 generated tokens, with loss, energy per
+# generated token and TPOT. configs/hw/rdxe.yaml holds the backend defaults, including weight_memory.
+
+supernets:
+  sl135_lr8e-3: runs/supernet/sl135_lr8e-3/step2500
+  sl360_lr4e-3: runs/supernet/sl360_lr4e-3/step2500
+
+# Shared argument sets, merged into jobs with YAML merge keys. The queue runner ignores this key.
+templates:
+  rdxe: &rdxe {hw: rdxe, prefill_len: 128, decode_len: 32, hw_arg: [n_workers=8], objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+
+jobs:
+  # ---- S1: uniform grids, 192 architectures per base model ----
+  - name: rdxe__smollm2-135m__grid
+    args: {<<: *rdxe, space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: grid}
+  - name: rdxe__smollm2-360m__grid
+    args: {<<: *rdxe, space: smollm2-360m_uniform, supernet: sl360_lr4e-3, algo: grid}
+
+  # ---- S2: NSGA-II with the three objectives, 832 evaluations per run ----
+  - name: rdxe__smollm2-135m__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m, supernet: sl135_lr8e-3}
+  - name: rdxe__smollm2-360m__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: smollm2-360m, supernet: sl360_lr4e-3}

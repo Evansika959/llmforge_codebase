@@ -1,0 +1,11 @@
+{
+  "anchor_reference": null,
+  "completed_rounds": 9,
+  "current_dataset": "rounds/0009/dataset_after.json",
+  "dataset_sha256": "d1c3b341041dbe7938f5991605414901942ea1896ed8bcbc7d9392e9b8d1ac43",
+  "latest_model": "rounds/0009/predictor_after.joblib",
+  "message": "Round 10: 10 candidates (no anchors)",
+  "pending_round": 10,
+  "proposal_sha256": "e478325df5574aa1c477aa454fb35fe1bad45a6aefa2029121e745f0d7db2148",
+  "status": "awaiting_measurements"
+}

@@ -1,0 +1,22 @@
+# Qwen3-4B on the GPU, run on its own worker with the decode protocol of queue.yaml.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_gpu4b.yaml
+#
+# Batched decoding: loss, energy per generated token and TPOT. The device label keeps this worker's
+# measurement caches apart from those of other machines with the same GPU model.
+
+supernets:
+  qwen3-4b_ab_blocks: runs/supernet/qwen3-4b_ab_blocks/final
+
+# Shared argument sets, merged into jobs with YAML merge keys. The queue runner ignores this key.
+templates:
+  # Decode schedule chosen by experiments/hw_nas/pilots/zeus_decode_schedule.py: all prefill windows first,
+  # then 1.5 s of untimed decode, then three decode windows of at least 6 s.
+  gpu_serve: &gpu_serve {hw: zeus, prefill_len: 512, decode_len: 128, zeus_batch: 64, zeus_repeats: 3, zeus_cuda_graphs: true, zeus_min_window_s: 2.0, zeus_schedule: grouped, zeus_settle_s: 1.5, zeus_decode_window_s: 6.0, hw_arg: [device_label=h100b], objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+
+jobs:
+  - name: gpu-serve__qwen3-4b__grid
+    args: {<<: *gpu_serve, space: qwen3-4b_uniform, supernet: qwen3-4b_ab_blocks, algo: grid}
+  - name: gpu-serve__qwen3-4b__nsga2__s0
+    args: {<<: [*gpu_serve, *nsga], space: qwen3-4b, supernet: qwen3-4b_ab_blocks}

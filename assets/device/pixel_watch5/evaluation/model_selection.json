@@ -1,0 +1,339 @@
+{
+  "best_round": 1,
+  "candidates": [
+    {
+      "dataset": "active_learning_watch5_dynamic_under45/dataset_000.json",
+      "dataset_sha256": "22b27d98668f45b65fb889eeaf76e594b52dfd1c2c44159187ae6c26fc5d1071",
+      "mean_mape": 29.534685879935477,
+      "model": "active_learning_watch5_dynamic_under45/initial_model.joblib",
+      "round": 0,
+      "validation": [
+        {
+          "mae": 5.51022275543213,
+          "mape": 22.138953911402865,
+          "n": 150,
+          "r2": 0.5920279134439659,
+          "spearman": 0.8237814504596302,
+          "target": "decode_tok_s"
+        },
+        {
+          "mae": 197.81748392740886,
+          "mape": 22.414373681665147,
+          "n": 150,
+          "r2": 0.7327221145219086,
+          "spearman": 0.8677199386337096,
+          "target": "ttft_ms"
+        },
+        {
+          "mae": 6.1238114840087885,
+          "mape": 44.05073004673841,
+          "n": 150,
+          "r2": 0.8352443407034831,
+          "spearman": 0.8552006755855817,
+          "target": "dynamic_energy_per_token_mj"
+        }
+      ]
+    },
+    {
+      "dataset": "active_learning_watch5_dynamic_under45/rounds/0001/dataset_after.json",
+      "dataset_sha256": "aaa21adb5fc3f0cec389257475071b5aba4c6eb346457e8b63e93c7b21a787b3",
+      "mean_mape": 29.321922276444138,
+      "model": "active_learning_watch5_dynamic_under45/rounds/0001/predictor_after.joblib",
+      "round": 1,
+      "validation": [
+        {
+          "mae": 5.48979667599996,
+          "mape": 22.023816840457727,
+          "n": 150,
+          "r2": 0.5857059775538691,
+          "spearman": 0.827562787963513,
+          "target": "decode_tok_s"
+        },
+        {
+          "mae": 197.71191365559895,
+          "mape": 22.38406429675309,
+          "n": 150,
+          "r2": 0.7336579530108176,
+          "spearman": 0.8703671932849772,
+          "target": "ttft_ms"
+        },
+        {
+          "mae": 5.939724143432616,
+          "mape": 43.55788569212159,
+          "n": 150,
+          "r2": 0.8423406246264254,
+          "spearman": 0.8569714209520424,
+          "target": "dynamic_energy_per_token_mj"
+        }
+      ]
+    },
+    {
+      "dataset": "active_learning_watch5_dynamic_under45/rounds/0002/dataset_after.json",
+      "dataset_sha256": "bc25f3f3b56f9a4112c0b4dc5e92ca07433444959ac8d4656a0d0ea92fa962a6",
+      "mean_mape": 29.428461307817987,
+      "model": "active_learning_watch5_dynamic_under45/rounds/0002/predictor_after.joblib",
+      "round": 2,
+      "validation": [
+        {
+          "mae": 5.510555060068767,
+          "mape": 22.1059133199848,
+          "n": 150,
+          "r2": 0.5831669496511342,
+          "spearman": 0.8265184029110305,
+          "target": "decode_tok_s"
+        },
+        {
+          "mae": 197.72329142252605,
+          "mape": 22.36048720764344,
+          "n": 150,
+          "r2": 0.7333735908022632,
+          "spearman": 0.8727495446837003,
+          "target": "ttft_ms"
+        },
+        {
+          "mae": 6.010582183827717,
+          "mape": 43.818983395825725,
+          "n": 150,
+          "r2": 0.8391306947118358,
+          "spearman": 0.8556664740655141,
+          "target": "dynamic_energy_per_token_mj"
+        }
+      ]
+    },
+    {
+      "dataset": "active_learning_watch5_dynamic_under45/rounds/0003/dataset_after.json",
+      "dataset_sha256": "466b9f2ba7aa0e6b6418e1b1827305fea403804a73cd0262f2c9c4887acd11b6",
+      "mean_mape": 29.56265847501849,
+      "model": "active_learning_watch5_dynamic_under45/rounds/0003/predictor_after.joblib",
+      "round": 3,
+      "validation": [
+        {
+          "mae": 5.494175983428955,
+          "mape": 21.995523712626564,
+          "n": 150,
+          "r2": 0.5891460319633073,
+          "spearman": 0.8255209375082135,
+          "target": "decode_tok_s"
+        },
+        {
+          "mae": 197.35556233723958,
+          "mape": 22.401555247455917,
+          "n": 150,
+          "r2": 0.7337798795164797,
+          "spearman": 0.8687848852664224,
+          "target": "ttft_ms"
+        },
+        {
+          "mae": 6.034583854761759,
+          "mape": 44.29089646497298,
+          "n": 150,
+          "r2": 0.8359663296694084,
+          "spearman": 0.8564974945534248,
+          "target": "dynamic_energy_per_token_mj"
+        }
+      ]
+    },
+    {
+      "dataset": "active_learning_watch5_dynamic_under45/rounds/0004/dataset_after.json",
+      "dataset_sha256": "cfb1063fc2f7108c173356792c476bfaa931ce6e61c4e374a958422ca139d5ad",
+      "mean_mape": 29.657585777810283,
+      "model": "active_learning_watch5_dynamic_under45/rounds/0004/predictor_after.joblib",
+      "round": 4,
+      "validation": [
+        {
+          "mae": 5.51525392150879,
+          "mape": 22.090965786871315,
+          "n": 150,
+          "r2": 0.5871855609051679,
+          "spearman": 0.8257086168317436,
+          "target": "decode_tok_s"
+        },
+        {
+          "mae": 199.9089560953776,
+          "mape": 22.687062461582553,
+          "n": 150,
+          "r2": 0.7282799310808583,
+          "spearman": 0.8675403733417163,
+          "target": "ttft_ms"
+        },
+        {
+          "mae": 5.991132944264729,
+          "mape": 44.19472908497698,
+          "n": 150,
+          "r2": 0.837593098055011,
+          "spearman": 0.8560210285091862,
+          "target": "dynamic_energy_per_token_mj"
+        }
+      ]
+    },
+    {
+      "dataset": "active_learning_watch5_dynamic_under45/rounds/0005/dataset_after.json",
+      "dataset_sha256": "313308c5f492ddfc72c6ea13f9c3e0c05e06530df09c4f531fe5f4e43269896a",
+      "mean_mape": 29.635007952197455,
+      "model": "active_learning_watch5_dynamic_under45/rounds/0005/predictor_after.joblib",
+      "round": 5,
+      "validation": [
+        {
+          "mae": 5.504110678990682,
+          "mape": 22.002861756975307,
+          "n": 150,
+          "r2": 0.587194032804327,
+          "spearman": 0.8244010368568236,
+          "target": "decode_tok_s"
+        },
+        {
+          "mae": 198.00934346516928,
+          "mape": 22.525286239904506,
+          "n": 150,
+          "r2": 0.7323814342293501,
+          "spearman": 0.8674425902619178,
+          "target": "ttft_ms"
+        },
+        {
+          "mae": 6.098644944559733,
+          "mape": 44.376875859712555,
+          "n": 150,
+          "r2": 0.8334668056995894,
+          "spearman": 0.8551000978714415,
+          "target": "dynamic_energy_per_token_mj"
+        }
+      ]
+    },
+    {
+      "dataset": "active_learning_watch5_dynamic_under45/rounds/0006/dataset_after.json",
+      "dataset_sha256": "55d4a997a4aecfa19fb35cbb549c17c9705fe8a50c6a71d579fe34ac78c37043",
+      "mean_mape": 29.61878507925231,
+      "model": "active_learning_watch5_dynamic_under45/rounds/0006/predictor_after.joblib",
+      "round": 6,
+      "validation": [
+        {
+          "mae": 5.5032808869679775,
+          "mape": 21.976624478673852,
+          "n": 150,
+          "r2": 0.585926227059782,
+          "spearman": 0.8240867743289347,
+          "target": "decode_tok_s"
+        },
+        {
+          "mae": 196.92421427408854,
+          "mape": 22.40249672543047,
+          "n": 150,
+          "r2": 0.7358484244004048,
+          "spearman": 0.8716170388322176,
+          "target": "ttft_ms"
+        },
+        {
+          "mae": 6.074464298787434,
+          "mape": 44.4772340336526,
+          "n": 150,
+          "r2": 0.8354085821516477,
+          "spearman": 0.8547907505143612,
+          "target": "dynamic_energy_per_token_mj"
+        }
+      ]
+    },
+    {
+      "dataset": "active_learning_watch5_dynamic_under45/rounds/0007/dataset_after.json",
+      "dataset_sha256": "ca715f58e28972e9c68dbe2dea49d6dc93a927003ddb68d5a390a56112d357f2",
+      "mean_mape": 29.694292534682234,
+      "model": "active_learning_watch5_dynamic_under45/rounds/0007/predictor_after.joblib",
+      "round": 7,
+      "validation": [
+        {
+          "mae": 5.507888825098674,
+          "mape": 22.056691878845548,
+          "n": 150,
+          "r2": 0.58367917358767,
+          "spearman": 0.8249284406279446,
+          "target": "decode_tok_s"
+        },
+        {
+          "mae": 197.3811775716146,
+          "mape": 22.46641473356909,
+          "n": 150,
+          "r2": 0.732989214702223,
+          "spearman": 0.8702747438277133,
+          "target": "ttft_ms"
+        },
+        {
+          "mae": 6.262616077962239,
+          "mape": 44.559770991632064,
+          "n": 150,
+          "r2": 0.8249047537273173,
+          "spearman": 0.8545499799991112,
+          "target": "dynamic_energy_per_token_mj"
+        }
+      ]
+    },
+    {
+      "dataset": "active_learning_watch5_dynamic_under45/rounds/0008/dataset_after.json",
+      "dataset_sha256": "ec4418f65f0815a334b609c7b1900ac54c46ec4b87ec459aa0a725a2bd69b7aa",
+      "mean_mape": 29.531859157251727,
+      "model": "active_learning_watch5_dynamic_under45/rounds/0008/predictor_after.joblib",
+      "round": 8,
+      "validation": [
+        {
+          "mae": 5.512392215092977,
+          "mape": 22.113148141300723,
+          "n": 150,
+          "r2": 0.5880158676119567,
+          "spearman": 0.8251230060217776,
+          "target": "decode_tok_s"
+        },
+        {
+          "mae": 197.75286865234375,
+          "mape": 22.41631099737706,
+          "n": 150,
+          "r2": 0.7324824811522315,
+          "spearman": 0.8710054501149335,
+          "target": "ttft_ms"
+        },
+        {
+          "mae": 6.042697040379842,
+          "mape": 44.06611833307739,
+          "n": 150,
+          "r2": 0.8383182693344453,
+          "spearman": 0.8523312147206543,
+          "target": "dynamic_energy_per_token_mj"
+        }
+      ]
+    },
+    {
+      "dataset": "active_learning_watch5_dynamic_under45/rounds/0009/dataset_after.json",
+      "dataset_sha256": "d1c3b341041dbe7938f5991605414901942ea1896ed8bcbc7d9392e9b8d1ac43",
+      "mean_mape": 29.509739177728434,
+      "model": "active_learning_watch5_dynamic_under45/rounds/0009/predictor_after.joblib",
+      "round": 9,
+      "validation": [
+        {
+          "mae": 5.50130297279358,
+          "mape": 22.05935425180216,
+          "n": 150,
+          "r2": 0.5877572544872687,
+          "spearman": 0.8252102334346721,
+          "target": "decode_tok_s"
+        },
+        {
+          "mae": 197.28534037272135,
+          "mape": 22.36947840095316,
+          "n": 150,
+          "r2": 0.7330924429065566,
+          "spearman": 0.8715903707195455,
+          "target": "ttft_ms"
+        },
+        {
+          "mae": 6.199779529474894,
+          "mape": 44.100384880429985,
+          "n": 150,
+          "r2": 0.8308463676018184,
+          "spearman": 0.8549802213431709,
+          "target": "dynamic_energy_per_token_mj"
+        }
+      ]
+    }
+  ],
+  "criterion": "Lowest arithmetic mean of the three fixed-validation MAPEs; tie: earliest round",
+  "scope": "Current real-watch dynamic stage, initial checkpoint and all completed rounds",
+  "test_evaluated": false,
+  "warning": "Validation-selected best within this stage, not a global or unbiased test-set winner."
+}

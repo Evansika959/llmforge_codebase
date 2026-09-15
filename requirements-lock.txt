@@ -1,0 +1,19 @@
+# Package versions behind the experiments in experiments/hw_nas.
+# Python 3.10, CUDA 13.0, one NVIDIA H100 80GB.
+torch==2.12.1
+transformers==4.53.3
+safetensors==0.8.0
+huggingface-hub==0.30.2
+accelerate==1.14.0
+datasets==2.21.0
+pyarrow==24.0.0
+numpy==2.2.6
+pandas==2.2.3
+PyYAML==6.0.3
+zeus==0.16.0
+nvidia-ml-py==13.610.43
+xgboost==3.2.0
+scikit-learn==1.7.2
+joblib==1.5.3
+matplotlib==3.10.9
+pytest==9.1.1

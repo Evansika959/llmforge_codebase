@@ -1,0 +1,5 @@
+variables:
+  # DXE nominal clock: 200 MHz (5 ns cycle)
+  version: 0.4
+  global_cycle_seconds: 5e-9
+  technology: "16nm"

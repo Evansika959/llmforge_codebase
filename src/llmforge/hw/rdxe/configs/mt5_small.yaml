@@ -1,0 +1,23 @@
+# MT5-small decoder on a single DXE chip
+# Workload: 960 prompt tokens and 64 generated tokens
+
+arch: dxe_relaxed
+
+features:
+  kv_correction: true
+  vlink_gqa: true
+  vrc: true
+  wmem_reload: true
+  fusion: true
+
+simulation:
+  prefill_length: 960
+  decode_length: 64
+
+multi_chip:
+  n_chips: 1
+  layer_assignment: round_robin
+
+output:
+  save_traces: true
+  plot: true

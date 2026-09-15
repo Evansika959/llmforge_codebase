@@ -1,0 +1,266 @@
+# Hardware-aware search experiment queue. Design and rationale: experiments/hw_nas/README.md.
+# Run:     python experiments/hw_nas/queue.py experiments/hw_nas/queue.yaml
+# Status:  python experiments/hw_nas/queue.py experiments/hw_nas/queue.yaml --status
+#
+# Supernet checkpoints are expected under runs/supernet/ (git-ignored), linked or copied there.
+
+defaults:
+  n_docs: 32
+  val_docs: 64
+  max_len: 1024
+  seed: 0
+
+supernets:
+  sl135_lr8e-3: runs/supernet/sl135_lr8e-3/step2500
+  sl135_lr4e-3: runs/supernet/sl135_lr4e-3/step2500
+  sl360_lr4e-3: runs/supernet/sl360_lr4e-3/step2500
+  sl360_lr2e-3: runs/supernet/sl360_lr2e-3/step2500
+  sl360_lr1e-3: runs/supernet/sl360_lr1e-3/final
+  qw06_cont: runs/supernet/qw06_cont/final
+  qw06_lr2e-3: runs/supernet/qw06_lr2e-3/final
+  qwen3-1.7b_ab: runs/supernet/qwen3-1.7b_ab/final
+  qwen3-1.7b: runs/supernet/qwen3-1.7b/final
+  qwen3-4b_ab: runs/supernet/qwen3-4b_ab/final
+  qwen3-4b_ab_blocks: runs/supernet/qwen3-4b_ab_blocks/final
+
+# Shared argument sets, merged into jobs with YAML merge keys. The queue runner ignores this key.
+templates:
+  gpu: &gpu {hw: zeus, prefill_len: 512, decode_len: 0, zeus_batch: 64, zeus_repeats: 3, zeus_min_window_s: 2.0, objectives: [val_loss, prefill_energy_per_token_uJ]}
+  # Decode schedule chosen by experiments/hw_nas/pilots/zeus_decode_schedule.py: all prefill windows first,
+  # then 1.5 s of untimed decode, then three decode windows of at least 6 s.
+  gpu_decode: &gpu_decode {hw: zeus, prefill_len: 512, decode_len: 128, zeus_batch: 64, zeus_repeats: 3, zeus_cuda_graphs: true, zeus_min_window_s: 2.0, zeus_schedule: grouped, zeus_settle_s: 1.5, zeus_decode_window_s: 6.0, objectives: [val_loss, energy_per_token_uJ]}
+  gpu_decode_interleaved: &gpu_decode_interleaved {hw: zeus, prefill_len: 512, decode_len: 128, zeus_batch: 64, zeus_repeats: 3, zeus_cuda_graphs: true, zeus_min_window_s: 2.0, objectives: [val_loss, energy_per_token_uJ]}
+  watch: &watch {hw: device, device_bundle: best, objectives: [val_loss, energy_per_token_uJ]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+  proxy_params: &proxy_params {hw: analytic, algo: nsga2, pop: 32, generations: 25, objectives: [val_loss, params_M]}
+  proxy_flops: &proxy_flops {hw: analytic, algo: nsga2, pop: 32, generations: 25, objectives: [val_loss, flops_per_token], analytic_seq_len: 512}
+
+jobs:
+  # ---- Phase 0: supernet screening -------------------------------------------------------
+  # Every uniform slice scored by each candidate supernet. Nesting violations and selection
+  # regret against dedicated-training references pick one supernet per scale. The chosen
+  # supernet's grid is also the uniform baseline of the later searches.
+  - name: screen__smollm2-135m__sl135_lr8e-3
+    args: {space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+  - name: screen__smollm2-135m__sl135_lr4e-3
+    args: {space: smollm2-135m_uniform, supernet: sl135_lr4e-3, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+  - name: screen__qwen3-1.7b__qwen3-1.7b_ab
+    args: {space: qwen3-1.7b_uniform, supernet: qwen3-1.7b_ab, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+  - name: screen__qwen3-1.7b__qwen3-1.7b
+    args: {space: qwen3-1.7b_uniform, supernet: qwen3-1.7b, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+  - name: screen__qwen3-4b__qwen3-4b_ab
+    args: {space: qwen3-4b_uniform, supernet: qwen3-4b_ab, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+  - name: screen__qwen3-4b__qwen3-4b_ab_blocks
+    args: {space: qwen3-4b_uniform, supernet: qwen3-4b_ab_blocks, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+  - name: screen__qwen3-0.6b__qw06_cont
+    args: {space: qwen3-0.6b_uniform, supernet: qw06_cont, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+  - name: screen__qwen3-0.6b__qw06_lr2e-3
+    args: {space: qwen3-0.6b_uniform, supernet: qw06_lr2e-3, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+  - name: screen__smollm2-360m__sl360_lr4e-3
+    args: {space: smollm2-360m_uniform, supernet: sl360_lr4e-3, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+  - name: screen__smollm2-360m__sl360_lr2e-3
+    args: {space: smollm2-360m_uniform, supernet: sl360_lr2e-3, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+  - name: screen__smollm2-360m__sl360_lr1e-3
+    args: {space: smollm2-360m_uniform, supernet: sl360_lr1e-3, algo: grid, hw: analytic, objectives: [val_loss, params_M]}
+
+  # ---- Phase 1: software-only proxy searches, hardware-agnostic baselines ----
+  - name: proxy-params__smollm2-135m__nsga2__s0
+    args: {<<: *proxy_params, space: smollm2-135m, supernet: sl135_lr8e-3}
+  - name: proxy-flops__smollm2-135m__nsga2__s0
+    args: {<<: *proxy_flops, space: smollm2-135m, supernet: sl135_lr8e-3}
+  - name: proxy-params__qwen3-1.7b__nsga2__s0
+    args: {<<: *proxy_params, space: qwen3-1.7b, supernet: qwen3-1.7b_ab}
+  - name: proxy-flops__qwen3-1.7b__nsga2__s0
+    args: {<<: *proxy_flops, space: qwen3-1.7b, supernet: qwen3-1.7b_ab}
+  - name: proxy-params__qwen3-4b__nsga2__s0
+    args: {<<: *proxy_params, space: qwen3-4b, supernet: qwen3-4b_ab_blocks}
+  - name: proxy-flops__qwen3-4b__nsga2__s0
+    args: {<<: *proxy_flops, space: qwen3-4b, supernet: qwen3-4b_ab_blocks}
+
+  # ---- Phase 2: Pixel Watch 5, SmolLM2-135M, uniform space ----
+  # ---- Ground-truth feasibility at Qwen3-1.7B: 10 in-place training steps of one heterogeneous
+  # front architecture, without and with gradient checkpointing, to measure time per step and peak memory ----
+  - name: gt-smoke__qwen3-1.7b__nockpt
+    command: [python, experiments/supernet_fidelity/groundtruth_het.py, --model, qwen3-1.7b, --set, runs/groundtruth/smoke__qwen3-1.7b/ARCHS.json, --arch, SH, --steps, '10', --mix, fineweb10bt=1.0, --out, runs/groundtruth/smoke__qwen3-1.7b/nockpt]
+    out: runs/jobs/gt-smoke__qwen3-1.7b__nockpt
+  - name: gt-smoke__qwen3-1.7b__ckpt
+    command: [python, experiments/supernet_fidelity/groundtruth_het.py, --model, qwen3-1.7b, --set, runs/groundtruth/smoke__qwen3-1.7b/ARCHS.json, --arch, SH, --steps, '10', --mix, fineweb10bt=1.0, --grad-ckpt, --out, runs/groundtruth/smoke__qwen3-1.7b/ckpt]
+    out: runs/jobs/gt-smoke__qwen3-1.7b__ckpt
+
+  - name: watch__smollm2-135m__grid
+    args: {<<: *watch, space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: grid}
+  - name: watch__smollm2-135m__nsga2__s0
+    args: {<<: *watch, space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: nsga2, pop: 16, generations: 10}
+  - name: watch__smollm2-135m__nsga2__s1
+    args: {<<: *watch, space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: nsga2, pop: 16, generations: 10, seed: 1}
+  - name: watch__smollm2-135m__nsga2__s2
+    args: {<<: *watch, space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: nsga2, pop: 16, generations: 10, seed: 2}
+
+  # ---- Phase 3: smollm2-135m on the GPU, batched serving ----
+  # Holds the queue until the GPU measurement protocol is decided by the pilots. Create
+  # scratch/pilots/GPU_PROTOCOL_DECIDED after updating the gpu template. Gives up after 6 hours.
+  - name: gate__gpu_protocol
+    command: [bash, -c, 'for i in $(seq 1 2160); do [ -f scratch/pilots/GPU_PROTOCOL_DECIDED ] && exit 0; sleep 10; done; exit 1']
+    out: runs/jobs/gate__gpu_protocol
+  - name: gpu__smollm2-135m__grid
+    args: {<<: *gpu, space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: grid}
+  - name: gpu__smollm2-135m__nsga2__s0
+    args: {<<: [*gpu, *nsga], space: smollm2-135m, supernet: sl135_lr8e-3}
+  - name: gpu__smollm2-135m__remeasure__proxy-params
+    args: {<<: *gpu, space: smollm2-135m, partition: per_layer, supernet: sl135_lr8e-3, algo: list, archs: runs/search/proxy-params__smollm2-135m__nsga2__s0/front.json}
+  - name: gpu__smollm2-135m__remeasure__proxy-flops
+    args: {<<: *gpu, space: smollm2-135m, partition: per_layer, supernet: sl135_lr8e-3, algo: list, archs: runs/search/proxy-flops__smollm2-135m__nsga2__s0/front.json}
+  # Superseded grid with the interleaved schedule of the protocol pilots, which reads decode energy 3% to
+  # 5% high. It first ran as gpu-decode__smollm2-135m__grid, hit a CUDA fault three architectures
+  # before the end, and reran under this name from its cached measurements.
+  - name: gpu-decode-interleaved__smollm2-135m__grid
+    args: {<<: *gpu_decode_interleaved, space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: grid}
+  # Decode energy of every uniform 135M architecture, so decode gets the same proxy-fidelity test as
+  # prefill.
+  - name: gpu-decode__smollm2-135m__grid
+    args: {<<: *gpu_decode, space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: grid}
+
+  # ---- Phase 4: qwen3-1.7b on the GPU, batched serving ----
+  # Uniform grids and both proxy fronts on both targets come first. Whether parameter count and FLOPs
+  # misrank decode cost at this scale decides if a search with decode energy in the loop follows them.
+  - name: gpu-decode__qwen3-1.7b__grid
+    args: {<<: *gpu_decode, space: qwen3-1.7b_uniform, supernet: qwen3-1.7b_ab, algo: grid}
+  - name: gpu__qwen3-1.7b__grid
+    args: {<<: *gpu, space: qwen3-1.7b_uniform, supernet: qwen3-1.7b_ab, algo: grid}
+  # One decode grid measurement was cached a second before the 15:43 CUDA fault and ran uniformly slow,
+  # with prefill time 60% and decode time 57% above its one-knob neighbors. It was moved to
+  # runs/cache/hw/quarantine/. This rerun replays every other cached architecture and measures it again.
+  - name: rerun__gpu-decode__qwen3-1.7b__grid
+    command: ["python", "-m", "llmforge.search.cosearch", "--n-docs", "32", "--val-docs", "64", "--max-len", "1024", "--seed", "0", "--hw", "zeus", "--prefill-len", "512", "--decode-len", "128", "--zeus-batch", "64", "--zeus-repeats", "3", "--zeus-cuda-graphs", "--zeus-min-window-s", "2.0", "--zeus-schedule", "grouped", "--zeus-settle-s", "1.5", "--zeus-decode-window-s", "6.0", "--objectives", "val_loss", "energy_per_token_uJ", "--algo", "grid", "--space", "configs/search_spaces/qwen3-1.7b_uniform.yaml", "--supernet", "runs/supernet/qwen3-1.7b_ab/final", "--out", "runs/search/gpu-decode__qwen3-1.7b__grid", "--force"]
+    out: runs/jobs/rerun__gpu-decode__qwen3-1.7b__grid
+  - name: gpu__qwen3-1.7b__remeasure__proxy-params
+    args: {<<: *gpu, space: qwen3-1.7b, partition: per_layer, supernet: qwen3-1.7b_ab, algo: list, archs: runs/search/proxy-params__qwen3-1.7b__nsga2__s0/front.json}
+  - name: gpu__qwen3-1.7b__remeasure__proxy-flops
+    args: {<<: *gpu, space: qwen3-1.7b, partition: per_layer, supernet: qwen3-1.7b_ab, algo: list, archs: runs/search/proxy-flops__qwen3-1.7b__nsga2__s0/front.json}
+  - name: gpu-decode__qwen3-1.7b__remeasure__proxy-params
+    args: {<<: *gpu_decode, space: qwen3-1.7b, partition: per_layer, supernet: qwen3-1.7b_ab, algo: list, archs: runs/search/proxy-params__qwen3-1.7b__nsga2__s0/front.json}
+  - name: gpu-decode__qwen3-1.7b__remeasure__proxy-flops
+    args: {<<: *gpu_decode, space: qwen3-1.7b, partition: per_layer, supernet: qwen3-1.7b_ab, algo: list, archs: runs/search/proxy-flops__qwen3-1.7b__nsga2__s0/front.json}
+  # Holds the queue while the pre-registered decode-search rule in scratch/pilots/decode_search_criteria.md
+  # is applied. Create scratch/pilots/DECODE_SEARCH_DECIDED after adding or skipping the search jobs.
+  # Proceeds by itself after 45 minutes, so the GPU never waits long.
+  - name: gate__decode_search_qwen3-1.7b
+    command: [bash, -c, 'for i in $(seq 1 270); do [ -f scratch/pilots/DECODE_SEARCH_DECIDED ] && exit 0; sleep 10; done; exit 0']
+    out: runs/jobs/gate__decode_search_qwen3-1.7b
+
+  # ---- Ground truth at Qwen3-1.7B: a heterogeneous front architecture and a uniform one of equal size, both
+  # trained in place for 2000 steps with the same recipe, then scored on the 192-document held-out set ----
+  - name: gt__qwen3-1.7b_pair1__SH
+    command: [python, experiments/supernet_fidelity/groundtruth_het.py, --model, qwen3-1.7b, --set, runs/groundtruth/qwen3-1.7b_pair1/ARCHS.json, --arch, SH, --steps, '2000', --lr, '3e-4', --mix, fineweb10bt=1.0, --out, runs/groundtruth/qwen3-1.7b_pair1]
+    out: runs/groundtruth/qwen3-1.7b_pair1/SH
+  - name: gt__qwen3-1.7b_pair1__SU
+    command: [python, experiments/supernet_fidelity/groundtruth_het.py, --model, qwen3-1.7b, --set, runs/groundtruth/qwen3-1.7b_pair1/ARCHS.json, --arch, SU, --steps, '2000', --lr, '3e-4', --mix, fineweb10bt=1.0, --out, runs/groundtruth/qwen3-1.7b_pair1]
+    out: runs/groundtruth/qwen3-1.7b_pair1/SU
+  - name: gt__qwen3-1.7b_pair1__score
+    command: [python, experiments/supernet_fidelity/eval_het.py, --model, qwen3-1.7b, --dir, runs/groundtruth/qwen3-1.7b_pair1, --texts, assets/heldout/heldout_ab.json, --out, runs/groundtruth/qwen3-1.7b_pair1/nll_ctx1024.json]
+    out: runs/jobs/gt__qwen3-1.7b_pair1__score
+
+  # ---- Phase 4, continued: NSGA-II with prefill energy in the loop, its front on decode ----
+  # Card-to-card check, 2026-09-14. The Qwen3-1.7B uniform smallest, median and full architectures were measured
+  # on the second worker's card with the decode protocol. This job measures them again on this card without the
+  # cache. The median architecture read 7% higher TPOT there than its cached value here.
+  - name: pilot__xgpu__local
+    command: [bash, -c, "for t in smallest median full median; do .venv/bin/python -m llmforge.hw.zeus.measure runs/pilots/xgpu/$t.json --prefill-len 512 --decode-len 128 --repeats 3 --batch-size 64 --cuda-graphs --min-window-s 2.0 --schedule grouped --settle-s 1.5 --decode-window-s 6.0 >> runs/pilots/xgpu/local_$t.out 2>&1; done"]
+  - name: gpu__qwen3-1.7b__nsga2__s0
+    args: {<<: [*gpu, *nsga], space: qwen3-1.7b, supernet: qwen3-1.7b_ab}
+  - name: gpu-decode__qwen3-1.7b__remeasure__nsga2-s0
+    args: {<<: *gpu_decode, space: qwen3-1.7b, partition: per_layer, supernet: qwen3-1.7b_ab, algo: list, archs: runs/search/gpu__qwen3-1.7b__nsga2__s0/front.json}
+  # Batched decoding on the GPU, decided with the authors on 2026-09-14: loss, energy per generated token and
+  # TPOT. Both runs measure into their own cache. The Qwen3-1.7B decode cache holds TPOT values that are too low:
+  # one architecture measured again at 3.747 and 3.748 ms against 3.500 ms cached, and a fit on parameters and KV
+  # cache flags a few more by 6 to 8.5%. The uniform baseline is therefore measured afresh, about 1.5 h, which
+  # also gives a second decode measurement of the grid.
+  - name: gpu-serve__qwen3-1.7b__grid
+    args: {<<: *gpu_decode, space: qwen3-1.7b_uniform, supernet: qwen3-1.7b_ab, algo: grid, objectives: [val_loss, energy_per_token_uJ, tpot_ms], hw_arg: [cache_dir=runs/cache/serve1]}
+  - name: gpu-serve__qwen3-1.7b__nsga2__s0
+    args: {<<: [*gpu_decode, *nsga], space: qwen3-1.7b, supernet: qwen3-1.7b_ab, objectives: [val_loss, energy_per_token_uJ, tpot_ms], hw_arg: [cache_dir=runs/cache/serve1]}
+  - name: gpu-decode__smollm2-135m__remeasure__nsga2-s0
+    args: {<<: *gpu_decode, space: smollm2-135m, partition: per_layer, supernet: sl135_lr8e-3, algo: list, archs: runs/search/gpu__smollm2-135m__nsga2__s0/front.json}
+
+  # ---- Phase 6: search baseline, random sampling at the NSGA-II evaluation count ----
+  - name: gpu__smollm2-135m__random__s0
+    args: {<<: *gpu, space: smollm2-135m, supernet: sl135_lr8e-3, algo: random, pop: 32, generations: 25}
+  # A second, independent decode measurement of every uniform 135M architecture in a separate cache.
+  # proxy_fidelity.py --retest judges every chooser on it, and it bounds any cost model's correlation.
+  - name: gpu-decode-retest__smollm2-135m__grid
+    args: {<<: *gpu_decode, space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: grid, hw_arg: [cache_dir=runs/cache/retest1]}
+
+  # ---- Phase 9: seeds and the second random baseline ----
+  - name: gpu__smollm2-135m__nsga2__s1
+    args: {<<: [*gpu, *nsga], space: smollm2-135m, supernet: sl135_lr8e-3, seed: 1}
+  - name: gpu__smollm2-135m__nsga2__s2
+    args: {<<: [*gpu, *nsga], space: smollm2-135m, supernet: sl135_lr8e-3, seed: 2}
+  - name: gpu__qwen3-1.7b__nsga2__s1
+    args: {<<: [*gpu, *nsga], space: qwen3-1.7b, supernet: qwen3-1.7b_ab, seed: 1}
+  - name: gpu__qwen3-1.7b__nsga2__s2
+    args: {<<: [*gpu, *nsga], space: qwen3-1.7b, supernet: qwen3-1.7b_ab, seed: 2}
+  - name: gpu__qwen3-1.7b__random__s0
+    args: {<<: *gpu, space: qwen3-1.7b, supernet: qwen3-1.7b_ab, algo: random, pop: 32, generations: 25}
+
+  # ---- Deferred on 2026-09-14: E1 and E2 run at SmolLM2-135M and Qwen3-1.7B for now. The jobs below
+  # are commented out until the scope of the other scales is decided. Remove the leading '# ' to restore
+  # them. ----
+#   # ---- Phase 5: qwen3-4b on the GPU, batched serving ----
+#   - name: gpu-decode__qwen3-4b__grid
+#     args: {<<: *gpu_decode, space: qwen3-4b_uniform, supernet: qwen3-4b_ab_blocks, algo: grid}
+#   - name: gpu__qwen3-4b__grid
+#     args: {<<: *gpu, space: qwen3-4b_uniform, supernet: qwen3-4b_ab_blocks, algo: grid}
+#   - name: gpu__qwen3-4b__remeasure__proxy-params
+#     args: {<<: *gpu, space: qwen3-4b, partition: per_layer, supernet: qwen3-4b_ab_blocks, algo: list, archs: runs/search/proxy-params__qwen3-4b__nsga2__s0/front.json}
+#   - name: gpu__qwen3-4b__remeasure__proxy-flops
+#     args: {<<: *gpu, space: qwen3-4b, partition: per_layer, supernet: qwen3-4b_ab_blocks, algo: list, archs: runs/search/proxy-flops__qwen3-4b__nsga2__s0/front.json}
+#   - name: gpu-decode__qwen3-4b__remeasure__proxy-params
+#     args: {<<: *gpu_decode, space: qwen3-4b, partition: per_layer, supernet: qwen3-4b_ab_blocks, algo: list, archs: runs/search/proxy-params__qwen3-4b__nsga2__s0/front.json}
+#   - name: gpu-decode__qwen3-4b__remeasure__proxy-flops
+#     args: {<<: *gpu_decode, space: qwen3-4b, partition: per_layer, supernet: qwen3-4b_ab_blocks, algo: list, archs: runs/search/proxy-flops__qwen3-4b__nsga2__s0/front.json}
+#   - name: gpu__qwen3-4b__nsga2__s0
+#     args: {<<: [*gpu, *nsga], space: qwen3-4b, supernet: qwen3-4b_ab_blocks}
+#   - name: gpu-decode__qwen3-4b__remeasure__nsga2-s0
+#     args: {<<: *gpu_decode, space: qwen3-4b, partition: per_layer, supernet: qwen3-4b_ab_blocks, algo: list, archs: runs/search/gpu__qwen3-4b__nsga2__s0/front.json}
+
+#   # ---- Phase 7: qwen3-0.6b, checkpoint confirmed by Phase 0 before start ----
+#   - name: proxy-params__qwen3-0.6b__nsga2__s0
+#     args: {<<: *proxy_params, space: qwen3-0.6b, supernet: qw06_cont}
+#   - name: proxy-flops__qwen3-0.6b__nsga2__s0
+#     args: {<<: *proxy_flops, space: qwen3-0.6b, supernet: qw06_cont}
+#   - name: gpu__qwen3-0.6b__grid
+#     args: {<<: *gpu, space: qwen3-0.6b_uniform, supernet: qw06_cont, algo: grid}
+#   - name: gpu__qwen3-0.6b__nsga2__s0
+#     args: {<<: [*gpu, *nsga], space: qwen3-0.6b, supernet: qw06_cont}
+#   - name: gpu__qwen3-0.6b__remeasure__proxy-params
+#     args: {<<: *gpu, space: qwen3-0.6b, partition: per_layer, supernet: qw06_cont, algo: list, archs: runs/search/proxy-params__qwen3-0.6b__nsga2__s0/front.json}
+#   - name: gpu__qwen3-0.6b__remeasure__proxy-flops
+#     args: {<<: *gpu, space: qwen3-0.6b, partition: per_layer, supernet: qw06_cont, algo: list, archs: runs/search/proxy-flops__qwen3-0.6b__nsga2__s0/front.json}
+#   - name: gpu-decode__qwen3-0.6b__remeasure__nsga2-s0
+#     args: {<<: *gpu_decode, space: qwen3-0.6b, partition: per_layer, supernet: qw06_cont, algo: list, archs: runs/search/gpu__qwen3-0.6b__nsga2__s0/front.json}
+#   - name: gpu-decode__qwen3-0.6b__remeasure__grid
+#     args: {<<: *gpu_decode, space: qwen3-0.6b, partition: per_layer, supernet: qw06_cont, algo: list, archs: runs/search/gpu__qwen3-0.6b__grid/front.json}
+
+#   # ---- Phase 8: smollm2-360m, checkpoint confirmed by Phase 0 before start ----
+#   - name: proxy-params__smollm2-360m__nsga2__s0
+#     args: {<<: *proxy_params, space: smollm2-360m, supernet: sl360_lr4e-3}
+#   - name: proxy-flops__smollm2-360m__nsga2__s0
+#     args: {<<: *proxy_flops, space: smollm2-360m, supernet: sl360_lr4e-3}
+#   - name: gpu__smollm2-360m__grid
+#     args: {<<: *gpu, space: smollm2-360m_uniform, supernet: sl360_lr4e-3, algo: grid}
+#   - name: gpu__smollm2-360m__nsga2__s0
+#     args: {<<: [*gpu, *nsga], space: smollm2-360m, supernet: sl360_lr4e-3}
+#   - name: gpu__smollm2-360m__remeasure__proxy-params
+#     args: {<<: *gpu, space: smollm2-360m, partition: per_layer, supernet: sl360_lr4e-3, algo: list, archs: runs/search/proxy-params__smollm2-360m__nsga2__s0/front.json}
+#   - name: gpu__smollm2-360m__remeasure__proxy-flops
+#     args: {<<: *gpu, space: smollm2-360m, partition: per_layer, supernet: sl360_lr4e-3, algo: list, archs: runs/search/proxy-flops__smollm2-360m__nsga2__s0/front.json}
+#   - name: gpu-decode__smollm2-360m__remeasure__nsga2-s0
+#     args: {<<: *gpu_decode, space: smollm2-360m, partition: per_layer, supernet: sl360_lr4e-3, algo: list, archs: runs/search/gpu__smollm2-360m__nsga2__s0/front.json}
+#   - name: gpu-decode__smollm2-360m__remeasure__grid
+#     args: {<<: *gpu_decode, space: smollm2-360m, partition: per_layer, supernet: sl360_lr4e-3, algo: list, archs: runs/search/gpu__smollm2-360m__grid/front.json}
+
+#   # ---- Phase 9, 4B seeds ----
+#   - name: gpu__qwen3-4b__nsga2__s1
+#     args: {<<: [*gpu, *nsga], space: qwen3-4b, supernet: qwen3-4b_ab_blocks, seed: 1}
+#   - name: gpu__qwen3-4b__nsga2__s2
+#     args: {<<: [*gpu, *nsga], space: qwen3-4b, supernet: qwen3-4b_ab_blocks, seed: 2}

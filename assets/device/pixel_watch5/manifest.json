@@ -1,0 +1,234 @@
+{
+  "artifact_sha256": {
+    "data/dataset_best_model.json": "5dfebf409350860cb9eba8eb4651665b6155153d21137c61bc860098eb11eb87",
+    "data/dataset_latest.json": "40bd29e2e87f842b3cb7c7ad94b3fd184d1620cce323baef4b2a4cbe9299e148",
+    "evaluation/model_selection.json": "e847df0a0cd13ed9e7900dd578e07cece4243b6d366a5246a24f19af8d6de250",
+    "models/predictor_best.joblib": "18891f0d47d37841d0b26397600b5e388e70265a160ce349c895ea419829f725",
+    "models/predictor_latest.joblib": "1fd80b3a2db4724a6a5f1c0c4cfb161ebfbfd9cf737fa8ab639eba4543dcd0d5",
+    "provenance/contract.json": "928139b4d66a49835a8c0da135d097738cc19c09f3db8e3615a6ba1d6fd02c50",
+    "provenance/energy_transition.json": "23709320dce6d7e8e53518d4f62c9b042fb03e619fd0a14e78a4da4c6c6aca4d",
+    "provenance/measurements/round_0001.csv": "177f341b3eaf7ecb7a82e38bce8ca7602fe4fc2e6fd2d247123fb02fab552095",
+    "provenance/measurements/round_0002.csv": "da1ab4397fea31967ca255489b81e727f6fdb5afc48970ebc23fdc2d0d8e0c16",
+    "provenance/measurements/round_0003.csv": "0b611f534034a7a0a193b2ff8d167a532da0ecbb007cdb19d3a09c5f6fe62ffa",
+    "provenance/measurements/round_0004.csv": "6e4b8e532f7174aaecdaf2081f1e02c5201f72bafb678377c94830e52ae6c36f",
+    "provenance/measurements/round_0005.csv": "71b49254fca3e04434be9861894d4eae96889f2e3f6d3c46a6bb19462dad813d",
+    "provenance/measurements/round_0006.csv": "04d07cdf3fc5d7c4f8a6afb6e25a6c32d8a758f97197f0689d40e85f8fa8ee1c",
+    "provenance/measurements/round_0007.csv": "3e9090ccb2942eed3e26e7a48acd7e500817c7c3ef47f7b4596fce0f3764a9c0",
+    "provenance/measurements/round_0008.csv": "b40a822c34497b7a65113ee9759848ede7c70402007e4fec2a8bb1bedd2153fb",
+    "provenance/measurements/round_0009.csv": "52101557a0d8a6df545f9fac5afbe88ead8b76391d88c4e81073b774f28016ad",
+    "provenance/settings.json": "22f6314074e129f23919642ffd67e5123087d2d2e5f95a3cfcd088485a060f0e",
+    "provenance/state.json": "f7a4ff3103e60c0ee8be0391b31a45a00b82ddbcb03ddcad16bffeed2e531e0b"
+  },
+  "best_model_counts": {
+    "test": 314,
+    "train": 1472,
+    "validation": 150
+  },
+  "best_model_dataset_sha256": "aaa21adb5fc3f0cec389257475071b5aba4c6eb346457e8b63e93c7b21a787b3",
+  "best_model_round": 1,
+  "copied_files": {
+    "data/dataset_best_model.json": {
+      "sha256": "5dfebf409350860cb9eba8eb4651665b6155153d21137c61bc860098eb11eb87",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0001/dataset_after.json"
+    },
+    "data/dataset_latest.json": {
+      "sha256": "40bd29e2e87f842b3cb7c7ad94b3fd184d1620cce323baef4b2a4cbe9299e148",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0009/dataset_after.json"
+    },
+    "models/predictor_best.joblib": {
+      "sha256": "18891f0d47d37841d0b26397600b5e388e70265a160ce349c895ea419829f725",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0001/predictor_after.joblib"
+    },
+    "models/predictor_latest.joblib": {
+      "sha256": "1fd80b3a2db4724a6a5f1c0c4cfb161ebfbfd9cf737fa8ab639eba4543dcd0d5",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0009/predictor_after.joblib"
+    },
+    "provenance/contract.json": {
+      "sha256": "928139b4d66a49835a8c0da135d097738cc19c09f3db8e3615a6ba1d6fd02c50",
+      "source": "active_learning_watch5_dynamic_under45/contract.json"
+    },
+    "provenance/energy_transition.json": {
+      "sha256": "23709320dce6d7e8e53518d4f62c9b042fb03e619fd0a14e78a4da4c6c6aca4d",
+      "source": "active_learning_watch5_dynamic_under45/provenance/energy_transition.json"
+    },
+    "provenance/measurements/round_0001.csv": {
+      "sha256": "177f341b3eaf7ecb7a82e38bce8ca7602fe4fc2e6fd2d247123fb02fab552095",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0001/measurements.csv"
+    },
+    "provenance/measurements/round_0002.csv": {
+      "sha256": "da1ab4397fea31967ca255489b81e727f6fdb5afc48970ebc23fdc2d0d8e0c16",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0002/measurements.csv"
+    },
+    "provenance/measurements/round_0003.csv": {
+      "sha256": "0b611f534034a7a0a193b2ff8d167a532da0ecbb007cdb19d3a09c5f6fe62ffa",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0003/measurements.csv"
+    },
+    "provenance/measurements/round_0004.csv": {
+      "sha256": "6e4b8e532f7174aaecdaf2081f1e02c5201f72bafb678377c94830e52ae6c36f",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0004/measurements.csv"
+    },
+    "provenance/measurements/round_0005.csv": {
+      "sha256": "71b49254fca3e04434be9861894d4eae96889f2e3f6d3c46a6bb19462dad813d",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0005/measurements.csv"
+    },
+    "provenance/measurements/round_0006.csv": {
+      "sha256": "04d07cdf3fc5d7c4f8a6afb6e25a6c32d8a758f97197f0689d40e85f8fa8ee1c",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0006/measurements.csv"
+    },
+    "provenance/measurements/round_0007.csv": {
+      "sha256": "3e9090ccb2942eed3e26e7a48acd7e500817c7c3ef47f7b4596fce0f3764a9c0",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0007/measurements.csv"
+    },
+    "provenance/measurements/round_0008.csv": {
+      "sha256": "b40a822c34497b7a65113ee9759848ede7c70402007e4fec2a8bb1bedd2153fb",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0008/measurements.csv"
+    },
+    "provenance/measurements/round_0009.csv": {
+      "sha256": "52101557a0d8a6df545f9fac5afbe88ead8b76391d88c4e81073b774f28016ad",
+      "source": "active_learning_watch5_dynamic_under45/rounds/0009/measurements.csv"
+    },
+    "provenance/settings.json": {
+      "sha256": "22f6314074e129f23919642ffd67e5123087d2d2e5f95a3cfcd088485a060f0e",
+      "source": "active_learning_watch5_dynamic_under45/settings.json"
+    },
+    "provenance/state.json": {
+      "sha256": "f7a4ff3103e60c0ee8be0391b31a45a00b82ddbcb03ddcad16bffeed2e531e0b",
+      "source": "active_learning_watch5_dynamic_under45/state.json"
+    }
+  },
+  "created_utc": "2026-09-14T04:36:26.875837+00:00",
+  "latest_counts": {
+    "test": 314,
+    "train": 1552,
+    "validation": 150
+  },
+  "latest_dataset_sha256": "d1c3b341041dbe7938f5991605414901942ea1896ed8bcbc7d9392e9b8d1ac43",
+  "model_selection": "Lowest arithmetic mean of the three fixed-validation MAPEs; tie: earliest round",
+  "notes": [
+    "Original workspace retained; this package is not an AL resume workspace.",
+    "Best checkpoint was not trained on the latest dataset: use its matching dataset for checkpoint initialization.",
+    "Source protocol retains historical 40 C; provenance/settings.json records the strict <45 C amendment.",
+    "Zero dynamic-energy training label retained in energy_transition.json quarantine, not log-trained.",
+    "Partial uncommitted round is not included in the validated dataset. Raw attempts remain in source workspace.",
+    "Release copy: machine-specific absolute path prefixes were removed from provenance strings and keys, which are now relative to the directory that held the acquisition workspaces. The device identity record is withheld. Dataset fingerprints were recomputed along the full round chain, and checkpoint dataset_sha256 fields and file digests were updated to match. Predictions are unchanged. Digests of files that are not part of this package refer to the original files."
+  ],
+  "package_versions": {
+    "joblib": "1.6.0",
+    "numpy": "1.23.5",
+    "scikit-learn": "1.7.2",
+    "scipy": "1.15.3",
+    "torch": "2.0.1",
+    "xgboost": "3.2.0"
+  },
+  "protocol": {
+    "adapter": "legacy_random_sweep_v1",
+    "comparability": "Historical device/build/state not fully verified. Operator confirmation and anchor pilot required before live acquisition.",
+    "device_id": "PixelWatch5-historical-identity-unverified",
+    "energy_definition": "Recorded max(active-baseline,0)*inference_duration*1000/output_tokens; includes prefill; validated within rounding tolerance",
+    "energy_label_validation": "baseline_reconciled_v1",
+    "energy_target": "dynamic",
+    "kernel_id": "16c954879607c83a1bb75538b883368d51bef732e340efe1c46a75c4f52362e6",
+    "min_battery_percent": 30,
+    "model_seed_policy": "active rounds: deterministic architecture SHA256; historical measurements: unseeded",
+    "output_tokens": 32,
+    "prompt_tokens": 49,
+    "protocol_id": "legacy_random_49x32_active_v1_dynamic_v1",
+    "temperature_ceiling": 40.0
+  },
+  "release_rewrite_versions": {
+    "joblib": "1.5.3",
+    "numpy": "2.2.6",
+    "python": "3.10.20",
+    "scikit-learn": "1.7.2",
+    "xgboost": "3.2.0"
+  },
+  "source_hashes": {
+    "reallmforge/export_reallm_hetero.py": "deb6120b7dffb4915682a8b140867597c312d0903e8699ae21a49d620792a1f0",
+    "scripts/prediction/__init__.py": "421b4c990a1b798b3b9d974e4e08ede8b2076146ffaf8c09a46092a299855be4",
+    "scripts/prediction/__main__.py": "cbe985c37dbace9ea2dc8922ca188985bc20f69493bdc1de6891d9beca8ab0fd",
+    "scripts/prediction/active_learning/__init__.py": "7e85ac1d150c2bf88f58923afee70733bc10d3923344fec9cbb3a1a0c090eed0",
+    "scripts/prediction/active_learning/cli.py": "4127eacb600b008ed6458f496bd1c5e38fc4bd35f2eac65a948127e07833c44f",
+    "scripts/prediction/active_learning/committee.py": "64da78171427b868b168955ee163267f09481f76d67431d59b4d14252f761225",
+    "scripts/prediction/active_learning/datasets.py": "f55c220c00d4cf9be4589afeed6230dcfbf0c0d363f1fadc1c1e14b713ae7548",
+    "scripts/prediction/active_learning/energy.py": "eff32118015270bed9001e8d6fe067a0699f764798aed5f878e8a75e71490b20",
+    "scripts/prediction/active_learning/engine.py": "635431de4c261701ce938bd5f6c78f8391a4b0de803674421e5db7f4eea54735",
+    "scripts/prediction/active_learning/hardware.py": "6e0142239fb249d7e056eaec05a76580d6ed75b0e9c3cf4bd90fc6a10c1cad11",
+    "scripts/prediction/active_learning/migration.py": "0383ffa74b100acda86affa52e9e75f196b60dd98c19181a45478543a968f2c9",
+    "scripts/prediction/active_learning/monitoring.py": "343dcc861a7c7d2b28775701a2f15fdd29ae6f133704b97c5c09e5191ab87247",
+    "scripts/prediction/active_learning/quality.py": "ebed6d90beb75cf4642e8a0ecbbb6c7fc6a4146a3c43af66564a2061ff0d8a94",
+    "scripts/prediction/active_learning/replay.py": "08ef3ea0631b4a07055fe3f91eea10af74197340bb12b4579d29358a40f04aca",
+    "scripts/prediction/active_learning/sampling.py": "b905ce4c7df0c1cd582d075136825024a7123e3d19730e1b92c708b0f5ce221c",
+    "scripts/prediction/active_learning/storage.py": "4de6627ada93ac7801d77ddbd52e17ed66fa322084208adcc4a567d050b9af71",
+    "scripts/prediction/active_learning/thermal.py": "6143dce35b581b676c1d5cd0f38190cd85649a6f214a5f1a22455e80c849e50e",
+    "scripts/prediction/active_learning/worker.py": "29a673b8447677e7c5bcae975cd56dbabe90829c22d34a0740b341bcf49dd775",
+    "scripts/prediction/config.py": "79a696452ef59efb573f2db64d4add45dc359a25053d9804a501810d3e6d262f",
+    "scripts/prediction/data/__init__.py": "f1d69bd81fb41e2ddf8c6642f5325f3ddc704cbfe89eb50a11a6f3dbb8fb4eed",
+    "scripts/prediction/data/dataset.py": "0980ab0ba67c304bc8f642131d174a6c0b962f397b5a5b48783b0fb4d9bf5d59",
+    "scripts/prediction/data/hardware_csv.py": "061f9cdece9957598ec35babd8ba91f93a531f51d5b8803ca630634ac5c8cb19",
+    "scripts/prediction/data/io.py": "fc7eeae92092794fce3f25cdd0b76bf6a1f0109119ee716aec0acdaec3407f2f",
+    "scripts/prediction/data/legacy.py": "b5945c07aef7bb4807163986e6b7bd08bafddbaaacae6c0f5a69a788b6073d8d",
+    "scripts/prediction/data/rounds.py": "2ae865ce5e7549ff8144bcfba7beec1574b63a6e5ef4d036065b85b82aeb2f12",
+    "scripts/prediction/evaluation/__init__.py": "6f192040d474dd0bfc8e2abf00b24219c51a88ce99fa92aaff47823473808fd9",
+    "scripts/prediction/evaluation/audit_gross_energy.py": "37943e0396eddeb81e39a730ee36de4bc285e0b8ecd11aa93582ac18b64540e2",
+    "scripts/prediction/evaluation/audit_proposed_physics_surrogate.py": "8684eaec9877375e77d6821037bbd278db0157a9effa16e2d21c9f6ab5113779",
+    "scripts/prediction/evaluation/metrics.py": "8e573500f0a912e773dc51e80fa8dfc363cb3c7321a7849b0f495e65ee29c0bc",
+    "scripts/prediction/experiments/__init__.py": "d5744996085c232b80a126bc574938506cab72108cfee0a5089ea4ea779a80c8",
+    "scripts/prediction/experiments/compare_physics_priors.py": "38f83ecfa1b148499500e9d200ca726f92948e64bf0048e58aff6c3d16db0321",
+    "scripts/prediction/experiments/compare_search_surrogates.py": "0e796c2114f5bae934de4e6a516bb9277919623f4dd2cf67f9eafd8ded2ac4a7",
+    "scripts/prediction/experiments/compare_surrogates.py": "6ee7b6d82d50326f0f169367a7289ff069ff03aff45e4061e1e65ba5b795aa82",
+    "scripts/prediction/experiments/diagnose_surrogate_error.py": "93b9c01ce55a0159e026833657f6ff45cf353afa58f55922c6bc2807b5341d70",
+    "scripts/prediction/experiments/evaluate_batch2_progress.py": "24398fd19b4cdea21b23988cf4e417d26dcc00225e977c5ff8b8c2d3336009e2",
+    "scripts/prediction/experiments/evaluate_gross_energy.py": "a69d73c041cecccafe4df478fe39468e8e272e63370e141e6153aefabe2d8f78",
+    "scripts/prediction/experiments/investigate_state_signal.py": "afaefce60c43a5bf653f822185a7802c39bb8cbcdf50c6015a46284344883786",
+    "scripts/prediction/experiments/train_proposed_physics_surrogate.py": "2bd45f2407e5b4d6d57c38397856ba003e31ca474c23e902c728a478cca71f25",
+    "scripts/prediction/experiments/transformer_learning_curve.py": "27f37ac7da8ce7a09ac4f8c353aefbacf499053388a138458d0f57869d03ac83",
+    "scripts/prediction/features/__init__.py": "e2d1767ae449c12638c5e0920e8b0cba48c69126d461bcbc6d1a885b885f2206",
+    "scripts/prediction/features/analytic.py": "c436f515878a6d671f333e1e6e95c9bfbf918c0beee6ddb249c966ce405b8631",
+    "scripts/prediction/features/physics.py": "8752fa7df98b2d0a0c8a82e5ed52109adb7dba8bfbe23928a1dfa20e7df48698",
+    "scripts/prediction/inference/__init__.py": "5634b714a27ff6afa46b3d1dce2d7943cbfb9f1c38004acbc8d507394d496e26",
+    "scripts/prediction/inference/ensemble.py": "ae96bb574101e2cb59bdc608ef448270083a82969b60cc9f2e408d34ef3a99fe",
+    "scripts/prediction/inference/neural.py": "29a2e41363df7b7c38e42cd51edc33bc27bf7b495ae0989c557702ccc687ee93",
+    "scripts/prediction/inference/predict_proposed_physics_surrogate.py": "8cf308b480437d63ddf06772781d6fbef6662659146a6aadd530aa18a660f1c7",
+    "scripts/prediction/inference/predict_surrogates.py": "f54fd476c0ec3421e6db21555fb62846dead4f68782a5a98a114cefe7e637d3d",
+    "scripts/prediction/inference/predictor.py": "8f6fc2a67e15a1c8aac3d917c7f9300561f4a21750b496ea3680fc548ff41f8b",
+    "scripts/prediction/inference/trees.py": "68fdc0729ab06186d04f54da64889454ac93b2a261df0dad864e35d8d08ab9c7",
+    "scripts/prediction/models/__init__.py": "25ed878af16aea47c1e15e61beda67b28153a08293b0a04c616984a3012aa8ca",
+    "scripts/prediction/models/legacy.py": "01b6ba1f616c69246a09a450564b36bdd7925a3cefaf03f27017473e2361d6a3",
+    "scripts/prediction/models/neural.py": "06dd2ed22461ff5a11fec8dce36a04cedd8189d450eab434ef455da0bb07d513",
+    "scripts/prediction/models/serialization.py": "bb1ffcb1e72efa46fb578dd8b300f4782639f45862c6ae9fb97d9fef17666e6d",
+    "scripts/prediction/models/trees.py": "6b19c99b735b4e2ba618a8b19acb2d6f8995b815960efbed624d5945f6db6ef4",
+    "scripts/prediction/reporting/__init__.py": "80bcab03d7b9bce11a7587c3581bccfcd20d8fba6cbc6fab1d847a6f51e04af3",
+    "scripts/prediction/reporting/plot_state_signal.py": "10f7170e3644d1286c730c7d8a2936f22cd9565f50a76446fd2f427258b0c861",
+    "scripts/prediction/reporting/report_batch2_progress.py": "2a5669d9fd8017927ecf8386c15d7b9a0feb60dcdbf9df10a7fcce94fe073128",
+    "scripts/prediction/reporting/report_error_diagnosis.py": "e2528fb0bcf5ecf38295d2c229afe98cdce8408d36e545de988772ae6eb0f314",
+    "scripts/prediction/reporting/report_surrogates.py": "87f29f9de26c497cec57ab380a20eb7f2701c725bb020a2ec9ce2b4b5f83f54a",
+    "scripts/prediction/reporting/run_report.py": "a66be7aa69e31a2ea74889f400ff2fb1ff975381271b5c0aee31e9375681f713",
+    "scripts/prediction/training/__init__.py": "da106f65f9849b1c51f144de60660bbadbdd5dcf19afe69658660dd714ff4442",
+    "scripts/prediction/training/ensemble.py": "15b43c7a9eaacf30164a97e1056add97c1c687d8bd62502d484c4898b8c5b1bb",
+    "scripts/prediction/training/neural.py": "71aa53cf8b4ecd87bc6bf5f5a364e30e146de70c82e568fdb7d4891adcdec5bd",
+    "scripts/prediction/training/pipeline.py": "237639cc1d765b41600b0f6cf2df6b81622a0908933a316d07e3f10c4cc33358",
+    "scripts/prediction/training/run.py": "be64b9622d287edec7023a918e27bcbec80d4c4e4b982431dbabb62bba530bb7",
+    "scripts/prediction/training/trees.py": "cb2cd530253eeb82fa7f5b5013e4c3afa89dcff20ae6bd5d370c86df2408ddc7",
+    "scripts/sweep/generate_watch5_random_50m_150m.py": "c6dc72b9028f115cbfafe77624638e1e0f0c1b9faccbd620014b9aafa68959b0",
+    "scripts/sweep/run_sweep_configs.py": "64b07e4e54b354cfd57e3212ddc4e7b867dd96494378f1c343df93996b1982c8",
+    "src/power_sampler.c": "7f1eeafa08187f90cd5b6ee143f4f0696e15d54e6645c7c4ab97134bd488e456",
+    "src/runq_reallm.c": "16c954879607c83a1bb75538b883368d51bef732e340efe1c46a75c4f52362e6"
+  },
+  "source_state": {
+    "anchor_reference": null,
+    "completed_rounds": 9,
+    "current_dataset": "rounds/0009/dataset_after.json",
+    "dataset_sha256": "d1c3b341041dbe7938f5991605414901942ea1896ed8bcbc7d9392e9b8d1ac43",
+    "latest_model": "rounds/0009/predictor_after.joblib",
+    "message": "Round 10: 10 candidates (no anchors)",
+    "pending_round": 10,
+    "proposal_sha256": "e478325df5574aa1c477aa454fb35fe1bad45a6aefa2029121e745f0d7db2148",
+    "status": "awaiting_measurements"
+  },
+  "source_workspace": "active_learning_watch5_dynamic_under45",
+  "targets": [
+    "decode_tok_s",
+    "ttft_ms",
+    "dynamic_energy_per_token_mj"
+  ]
+}

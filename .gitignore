@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+
+# Scratch space for temporary files (never committed)
+/scratch/
+
+# Experiment working directories (large, regenerable; experiments run inside this repo)
+/runs/
+/logs/
+/data/
+/checkpoints/
+/timeloop_cache/
+/outputs/
+*.safetensors
+*.pt
+wandb/
+
+# Local machine configuration (hosts, keys, device serials) never enters the repo
+/configs/local/
+*.hosts.yaml
+
+.DS_Store
+
+# Third-party checkouts fetched by scripts/setup/fetch_third_party.sh
+/third_party/ReaLLM-Forge/
+/third_party/nanollmforge.c/
+third_party/timeloop-build/

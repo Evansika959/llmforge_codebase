@@ -1,0 +1,32 @@
+{
+  "anchor_tolerance": 0.25,
+  "anchors": 0,
+  "batch_size": 10,
+  "kernel_id": "16c954879607c83a1bb75538b883368d51bef732e340efe1c46a75c4f52362e6",
+  "max_measurement_attempts": 3,
+  "max_params_m": 150.0,
+  "max_rounds": 463,
+  "members": 5,
+  "min_battery_percent": 30,
+  "min_params_m": 50.0,
+  "pool_size": 5000,
+  "seed": 42,
+  "strategy": "hybrid",
+  "target_weights": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "temperature_ceiling": 45.0,
+  "thermal_policy": {
+    "ceiling_c": 45.0,
+    "comparison": "lt",
+    "inference_temperature_polling": false,
+    "invalid_telemetry_timeout_seconds": 180,
+    "migration": "migrations/0002_strict_under45/record.json",
+    "previous_ceiling_c": 40.0,
+    "reason": "User explicitly requested strict <45 C admission and continued real-watch active learning. Retain completed 40 C measurements, record operating-condition transition, continue valid cooldown waits, retain 30 percent battery cutoff and no inference temperature polling.",
+    "valid_cooldown_timeout": false,
+    "version": 1
+  }
+}

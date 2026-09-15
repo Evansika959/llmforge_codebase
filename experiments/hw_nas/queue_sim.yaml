@@ -1,0 +1,57 @@
+# Simulator targets: the Timeloop substrates and the rDXE ring co-search. This queue runs on its own worker,
+# which needs the Timeloop toolchain of scripts/setup/install_timeloop.sh and no GPU measurement.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_sim.yaml
+#
+# Workload: 128 prompt tokens and 32 generated tokens, the defaults of configs/hw/timeloop.yaml. Objectives: loss,
+# energy per generated token and TPOT. Gemmini uses the specification that shares one technology setting with
+# Eyeriss and FLAT. The rDXE grids and searches run from queue_sim_rdxe.yaml on the corrected rDXE backend.
+
+supernets:
+  sl135_lr8e-3: runs/supernet/sl135_lr8e-3/step2500
+  sl360_lr4e-3: runs/supernet/sl360_lr4e-3/step2500
+  qw06_cont: runs/supernet/qw06_cont/final
+
+# Shared argument sets, merged into jobs with YAML merge keys. The queue runner ignores this key.
+templates:
+  tl: &tl {hw: timeloop, prefill_len: 128, decode_len: 32, objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+
+jobs:
+  # ---- S1: uniform grids, 192 architectures per base model ----
+  - name: tl-gemmini__smollm2-135m__grid
+    args: {<<: *tl, hw_arg: [substrate=gemmini_16nm], space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: grid}
+  - name: tl-eyeriss__smollm2-135m__grid
+    args: {<<: *tl, hw_arg: [substrate=eyeriss], space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: grid}
+  - name: tl-flat__smollm2-135m__grid
+    args: {<<: *tl, hw_arg: [substrate=flat_edge], space: smollm2-135m_uniform, supernet: sl135_lr8e-3, algo: grid}
+  - name: tl-gemmini__smollm2-360m__grid
+    args: {<<: *tl, hw_arg: [substrate=gemmini_16nm], space: smollm2-360m_uniform, supernet: sl360_lr4e-3, algo: grid}
+  - name: tl-eyeriss__smollm2-360m__grid
+    args: {<<: *tl, hw_arg: [substrate=eyeriss], space: smollm2-360m_uniform, supernet: sl360_lr4e-3, algo: grid}
+  - name: tl-flat__smollm2-360m__grid
+    args: {<<: *tl, hw_arg: [substrate=flat_edge], space: smollm2-360m_uniform, supernet: sl360_lr4e-3, algo: grid}
+
+  # ---- Gate: S2 waited for the authors' decision on workload and objectives, because on the uniform grids
+  # energy per token and TPOT follow parameter count on all three Timeloop substrates. Decided 2026-09-15:
+  # run the S2 searches as defined, to test heterogeneous search on every simulator target. ----
+  - name: gate__sim_s2
+    command: [bash, -c, "for i in $(seq 1 17280); do [ -f scratch/pilots/SIM_S2_DECIDED ] && exit 0; sleep 10; done; exit 1"]
+
+  # ---- S2: NSGA-II with the three objectives, 832 evaluations per run ----
+  - name: tl-gemmini__smollm2-135m__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-135m, supernet: sl135_lr8e-3}
+  - name: tl-eyeriss__smollm2-135m__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-135m, supernet: sl135_lr8e-3}
+  - name: tl-flat__smollm2-135m__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-135m, supernet: sl135_lr8e-3}
+  - name: tl-gemmini__smollm2-360m__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-360m, supernet: sl360_lr4e-3}
+  - name: tl-eyeriss__smollm2-360m__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-360m, supernet: sl360_lr4e-3}
+  - name: tl-flat__smollm2-360m__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-360m, supernet: sl360_lr4e-3}
+
+  # ---- S3, if time allows: Qwen3-0.6B. Remove the leading '# ' to enable. ----
+  # - name: tl-gemmini__qwen3-0.6b__grid
+  #   args: {<<: *tl, hw_arg: [substrate=gemmini_16nm], space: qwen3-0.6b_uniform, supernet: qw06_cont, algo: grid}

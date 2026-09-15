@@ -1,0 +1,6 @@
+# Keyword arguments of llmforge.evaluators.hw_timeloop.HwTimeloop.
+# Timeloop counts cycles at a 1 GHz reference clock. See docs/hw_simulators.md.
+substrate: dxe_relaxed     # a key of llmforge.evaluators.hw_timeloop.SUBSTRATE_MAP
+prefill_len: 128           # prompt tokens of the prefill pass
+decode_len: 32             # generated tokens, also the attention context of the decode pass
+fused: true                # subtract the DRAM traffic that operator fusion keeps on chip

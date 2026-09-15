@@ -1,0 +1,14 @@
+# Keyword arguments of llmforge.evaluators.hw_rdxe.HwRdxeInner.
+# The inner chip grid is fixed in llmforge.hw.rdxe.cosearch. See docs/hw_simulators.md.
+prefill_len: 128
+decode_len: 32
+n_users: 1
+ctx: 2048                  # KV-cache context of the decode GEMMs
+select_by: per_tok_uJ      # per_tok_uJ, tpot_ms, or ttft_ms
+envelope_filter: true
+area_min_mm2: 0.0
+area_max_mm2: 800.0
+power_min_W: 0.0
+power_max_W: 100.0
+n_workers: 8               # parallel Timeloop mapper processes during prefetch
+weight_memory: wmem        # wmem: weights in on-chip WMEM for energy and time, dram: mapped DRAM traffic
