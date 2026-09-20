@@ -1,0 +1,51 @@
+# Timeloop targets on the elastic-KV SmolLM2 supernets, whose search also chooses the number of KV groups of every
+# attention block. Runs on the simulator worker next to queue_sim_rdxe_nkv.yaml.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_sim_nkv.yaml
+#
+# Run names carry the space name, smollm2-135m_nkv or smollm2-360m_nkv, so the width-only runs keep their names and
+# the analysis scripts find the matching configs/search_spaces/<space>.yaml. Workload and objectives match
+# queue_sim.yaml: 128 prompt tokens and 32 generated tokens, with loss, energy per generated token and TPOT.
+
+supernets:
+  nkv_sl135: runs/supernet/nkv_sl135/step2500
+  nkv_sl360: runs/supernet/nkv_sl360/step2500
+
+# Shared argument sets, merged into jobs with YAML merge keys. The queue runner ignores this key.
+templates:
+  tl: &tl {hw: timeloop, prefill_len: 128, decode_len: 32, objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+
+jobs:
+  # ---- S1: uniform grids, 384 architectures per base model ----
+  - name: tl-gemmini__smollm2-135m_nkv__grid
+    args: {<<: *tl, hw_arg: [substrate=gemmini_16nm], space: smollm2-135m_nkv_uniform, supernet: nkv_sl135, algo: grid}
+  - name: tl-eyeriss__smollm2-135m_nkv__grid
+    args: {<<: *tl, hw_arg: [substrate=eyeriss], space: smollm2-135m_nkv_uniform, supernet: nkv_sl135, algo: grid}
+  - name: tl-flat__smollm2-135m_nkv__grid
+    args: {<<: *tl, hw_arg: [substrate=flat_edge], space: smollm2-135m_nkv_uniform, supernet: nkv_sl135, algo: grid}
+  - name: tl-gemmini__smollm2-360m_nkv__grid
+    args: {<<: *tl, hw_arg: [substrate=gemmini_16nm], space: smollm2-360m_nkv_uniform, supernet: nkv_sl360, algo: grid}
+  - name: tl-eyeriss__smollm2-360m_nkv__grid
+    args: {<<: *tl, hw_arg: [substrate=eyeriss], space: smollm2-360m_nkv_uniform, supernet: nkv_sl360, algo: grid}
+  - name: tl-flat__smollm2-360m_nkv__grid
+    args: {<<: *tl, hw_arg: [substrate=flat_edge], space: smollm2-360m_nkv_uniform, supernet: nkv_sl360, algo: grid}
+
+  # ---- Gate: the S2 searches wait for the authors to confirm the elastic-KV reruns. ----
+  - name: gate__sim_nkv_s2
+    command: [bash, -c, "for i in $(seq 1 17280); do [ -f scratch/pilots/SIM_NKV_S2_DECIDED ] && exit 0; sleep 10; done; exit 1"]
+
+  # ---- S2: NSGA-II with the three objectives, 832 evaluations per run ----
+  - name: tl-gemmini__smollm2-135m_nkv__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-135m_nkv, supernet: nkv_sl135}
+  - name: tl-eyeriss__smollm2-135m_nkv__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-135m_nkv, supernet: nkv_sl135}
+  # Paused from 18:35 to 20:25 UTC on 2026-09-15 while the Qwen3-0.6B jobs of queue_sim_qwen06.yaml ran first.
+  - name: tl-flat__smollm2-135m_nkv__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-135m_nkv, supernet: nkv_sl135}
+  - name: tl-gemmini__smollm2-360m_nkv__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-360m_nkv, supernet: nkv_sl360}
+  - name: tl-eyeriss__smollm2-360m_nkv__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-360m_nkv, supernet: nkv_sl360}
+  - name: tl-flat__smollm2-360m_nkv__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-360m_nkv, supernet: nkv_sl360}

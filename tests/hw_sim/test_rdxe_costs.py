@@ -119,7 +119,16 @@ def test_run_rdxe_eval_costs_every_active_layer(no_mapper, small_individual):
     full, narrow = cosearch.run_rdxe_eval([small_individual, narrow_tail], prefill_len=64, decode_len=16,
                                           ctx=256, n_workers=1, envelope_filter=False)
     assert narrow["energy_per_token_uJ"] < full["energy_per_token_uJ"]
-    assert full["ops_fallback"] == narrow["ops_fallback"] == 7 * 4
+    assert full["ops_fallback"] == narrow["ops_fallback"] == 8 * 4
+
+
+def test_run_rdxe_eval_prices_the_swiglu_gate(no_mapper, small_individual):
+    plain = {"globals": {**small_individual["globals"], "mlp_variant": "mlp"},
+             "layers": small_individual["layers"]}
+    gated, two = cosearch.run_rdxe_eval([small_individual, plain], prefill_len=64, decode_len=16, ctx=256,
+                                        n_workers=1, envelope_filter=False)
+    assert gated["energy_per_token_uJ"] > two["energy_per_token_uJ"]
+    assert gated["ops_fallback"] == 8 * 4 and two["ops_fallback"] == 7 * 4
 
 
 def test_simulate_ring_pipelines_the_prompt_over_unequal_stages(monkeypatch):

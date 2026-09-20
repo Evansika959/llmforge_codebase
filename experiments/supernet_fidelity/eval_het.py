@@ -6,13 +6,21 @@ active slice is the trained architecture. Reading it means loading the full weig
 architecture's config, and evaluating -- the inactive weights are never touched. Windowing matches
 slice_nll.py exactly (concatenate the held-out documents into 1024-token windows above ctx 768),
 because the whole point is to compare these numbers against slice scores measured that way.
+
+A checkpoint trained from a supernet carries the KV-group alignment and the per-width temperature,
+which are rebuilt before loading, and an architecture may pin a per-layer n_kv. Two optional
+references use the same windows: `--base` scores the published checkpoint under the key "base", and
+`--supernet` with `--set` scores every architecture of the set as an untrained slice of that supernet
+under "slice:<name>".
 """
 import argparse, json, os, sys
 import numpy as np, torch, torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from safetensors.torch import load_file
 from llmforge.supernet.config import SPECS
-from llmforge.supernet.elastic import enable_elastic, pair_order_for, set_elastic_backend, set_elastic_config
+from llmforge.supernet.elastic import (add_elastic_temperature, add_kv_alignment, enable_elastic, pair_order_for,
+                                       set_elastic_backend, set_elastic_config)
+from llmforge.supernet.search.nsga import load_supernet
 from llmforge.supernet.space import ElasticConfig
 from llmforge.supernet.paths import RUNS
 from llmforge.paths import HELDOUT
@@ -29,6 +37,9 @@ ap.add_argument("--texts", default=f"{HELDOUT}/heldout_texts.json",
                      "instead of 58, cutting the paired between-architecture SE ~1.46x "
                      "from 0.0033. Every comparison must use the same file on both sides.")
 ap.add_argument("--out", default=f"{RUNS}/gt135_het_nll_ctx1024.json")
+ap.add_argument("--base", action="store_true", help="also score the published checkpoint")
+ap.add_argument("--supernet", default=None, help="supernet checkpoint whose untrained slices to score")
+ap.add_argument("--set", default=None, help="architecture set scored as slices of --supernet")
 a = ap.parse_args()
 
 spec = SPECS[a.model]; order = pair_order_for(spec)
@@ -47,18 +58,9 @@ print(f"{len(ids)} windows of {a.ctx}")
 
 res = json.load(open(a.out)) if os.path.exists(a.out) else {}
 units = {}
-for d in sorted(os.listdir(a.dir)):
-    p = os.path.join(a.dir, d)
-    if not os.path.isfile(os.path.join(p, "arch.json")) or d in res:
-        continue
-    A = json.load(open(os.path.join(p, "arch.json")))
-    m = AutoModelForCausalLM.from_pretrained(spec.repo, torch_dtype=torch.bfloat16,
-                                             attn_implementation="eager").to("cuda").eval()
-    enable_elastic(m); set_elastic_backend("eager"); m.config.use_cache = False
-    sd = load_file(os.path.join(p, "model.safetensors"))
-    miss, unexp = m.load_state_dict({k: v.to("cuda") for k, v in sd.items()}, strict=False)
-    assert len(miss) <= 1, f"{d}: {len(miss)} missing tensors"
-    set_elastic_config(m, A["d_qk"], A["d_v"], order, n_h=A["n_h"], d_mlp=A["d_mlp"])
+
+
+def score(m, name, A):
     per = []
     with torch.no_grad():
         for x in ids:
@@ -70,13 +72,51 @@ for d in sorted(os.listdir(a.dir)):
     rng = np.random.default_rng(0)
     bs = [sum(per[j][0] for j in k) / sum(per[j][1] for j in k)
           for k in (rng.integers(0, len(per), len(per)) for _ in range(1000))]
-    res[d] = {"nll": tot / cnt, "se": float(np.std(bs)), "n_units": len(per),
-              **{k: A[k] for k in ("w", "kv", "het", "slice_loss", "slice_loss_val")
-                 if k in A}}
-    units[d] = [(float(s), float(c)) for s, c in per]
-    print(f"  {d:6} w={A['w']:.3f} het={A.get('het',0):.3f} nll={res[d]['nll']:.4f} "
-          f"+-{res[d]['se']:.4f}  (slice said {A.get('slice_loss', float('nan')):.4f})", flush=True)
+    res[name] = {"nll": tot / cnt, "se": float(np.std(bs)), "n_units": len(per),
+                 **{k: A[k] for k in ("w", "kv", "het", "slice_loss", "slice_loss_val", "init") if k in A}}
+    units[name] = [(float(s), float(c)) for s, c in per]
+    print(f"  {name:10} w={A.get('w', 1.0):.3f} het={A.get('het',0):.3f} nll={res[name]['nll']:.4f} "
+          f"+-{res[name]['se']:.4f}  (slice said {A.get('slice_loss', float('nan')):.4f})", flush=True)
     json.dump(res, open(a.out, "w"), indent=1)
     json.dump(units, open(a.out.replace(".json", "_units.json"), "w"))
+
+
+# The published checkpoint first, before enable_elastic patches the model class.
+if a.base and "base" not in res:
+    m = AutoModelForCausalLM.from_pretrained(spec.repo, torch_dtype=torch.bfloat16,
+                                             attn_implementation="eager").to("cuda").eval()
+    m.config.use_cache = False
+    score(m, "base", {})
     del m; torch.cuda.empty_cache()
-print(f"wrote {a.out} ({len(res)} architectures)")
+
+if a.supernet and a.set:
+    todo = [A for A in json.load(open(a.set)) if f"slice:{A['name']}" not in res]
+    if todo:
+        m, _, _ = load_supernet(a.supernet, spec)
+        for A in todo:
+            set_elastic_config(m, A["d_qk"], A["d_v"], order, n_h=A["n_h"], d_mlp=A["d_mlp"], n_kv=A.get("n_kv"))
+            score(m, f"slice:{A['name']}", A)
+        del m; torch.cuda.empty_cache()
+
+for d in sorted(os.listdir(a.dir)):
+    p = os.path.join(a.dir, d)
+    if not os.path.isfile(os.path.join(p, "arch.json")) or d in res:
+        continue
+    A = json.load(open(os.path.join(p, "arch.json")))
+    m = AutoModelForCausalLM.from_pretrained(spec.repo, torch_dtype=torch.bfloat16,
+                                             attn_implementation="eager").to("cuda").eval()
+    enable_elastic(m); set_elastic_backend("eager"); m.config.use_cache = False
+    sd = load_file(os.path.join(p, "model.safetensors"))
+    # A model trained from a supernet carries its KV-group alignment and per-width temperature. Without the
+    # matching modules those tensors load as unexpected and are dropped silently.
+    if any("kv_ang" in k for k in sd):
+        add_kv_alignment(m)
+    if any("logit_scale" in k for k in sd):
+        add_elastic_temperature(m)
+    miss, unexp = m.load_state_dict({k: v.to("cuda") for k, v in sd.items()}, strict=False)
+    assert len(miss) <= 1, f"{d}: {len(miss)} missing tensors"
+    assert not unexp, f"{d}: {len(unexp)} unexpected tensors, e.g. {unexp[:3]}"
+    set_elastic_config(m, A["d_qk"], A["d_v"], order, n_h=A["n_h"], d_mlp=A["d_mlp"], n_kv=A.get("n_kv"))
+    score(m, d, A)
+    del m; torch.cuda.empty_cache()
+print(f"wrote {a.out} ({len(res)} entries)")

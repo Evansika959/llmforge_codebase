@@ -1,0 +1,79 @@
+# ZEUS measurements on the five-knob (elastic-KV) supernets, at the two Qwen scales the GPU backend covers.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_nkv_gpu.yaml
+#
+# Every job here measures energy on the card, so it needs the GPU quiet and to itself. Never run this at the
+# same time as queue_nkv_main.yaml, whose simulator jobs also occupy the GPU for supernet scoring and would
+# corrupt the energy windows.
+#
+# Two distinct GPU protocols, kept apart because they measure different things:
+#   gpu        prefill only, the objective the measured search optimises, batch 64 x prompt 512
+#   gpu_serve  batched decoding with three objectives, which is the only measured cell where energy and
+#              latency are both present and can therefore disagree
+#
+# Wall-clock estimates are the measured medians of the width-only runs at the same cells. The elastic-KV
+# space is larger, so treat them as lower bounds.
+#
+#   Phase A  proxies at both scales, 4 runs      ~1.7 h
+#   Phase B  prefill at Qwen3-1.7B, 5 runs       ~9.5 h
+#   Phase C  batched decoding, 2 runs            ~15.5 h
+#   total                                        ~27 h
+#
+# Phase C is the expensive one and it is what the objective-split claim rests on, so if the budget is short,
+# run Phase A and Phase C and drop Phase B.
+
+supernets:
+  nkv_qw17: runs/supernet/nkv_qw17/step2500
+  nkv_qw4b: runs/supernet/nkv_qw4b/step2500
+
+# Shared argument sets, merged into jobs with YAML merge keys. The queue runner ignores this key.
+templates:
+  gpu: &gpu {hw: zeus, prefill_len: 512, decode_len: 0, zeus_batch: 64, zeus_repeats: 3,
+             zeus_min_window_s: 2.0, objectives: [val_loss, prefill_energy_per_token_uJ]}
+  # The three zeus_schedule, zeus_settle_s and zeus_decode_window_s settings are not decoration. The existing
+  # gpu-serve run measured under grouped scheduling with a 1.5 s settle and a 6 s decode window, while
+  # cosearch defaults to interleaved with no settle. Dropping them would measure a different protocol and
+  # make the comparison against the width-only run meaningless.
+  gpu_serve: &gpu_serve {hw: zeus, prefill_len: 512, decode_len: 128, zeus_batch: 64, zeus_repeats: 3,
+                         zeus_cuda_graphs: true, zeus_min_window_s: 2.0, zeus_schedule: grouped,
+                         zeus_settle_s: 1.5, zeus_decode_window_s: 6.0,
+                         objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+  rand: &rand {algo: random, pop: 32, generations: 25}
+  proxy_params: &proxy_params {hw: analytic, algo: nsga2, pop: 32, generations: 25,
+                               objectives: [val_loss, params_M]}
+  proxy_flops: &proxy_flops {hw: analytic, algo: nsga2, pop: 32, generations: 25,
+                             objectives: [val_loss, flops_per_token], analytic_seq_len: 512}
+
+jobs:
+  # ---- Phase A: the hardware-agnostic controls at the Qwen scales, ~20 to 31 min each ----
+  - name: proxy-params__qwen3-1.7b_nkv__nsga2__s0
+    args: {<<: *proxy_params, space: qwen3-1.7b_nkv, supernet: nkv_qw17}
+  - name: proxy-flops__qwen3-1.7b_nkv__nsga2__s0
+    args: {<<: *proxy_flops, space: qwen3-1.7b_nkv, supernet: nkv_qw17}
+  - name: proxy-params__qwen3-4b_nkv__nsga2__s0
+    args: {<<: *proxy_params, space: qwen3-4b_nkv, supernet: nkv_qw4b}
+  - name: proxy-flops__qwen3-4b_nkv__nsga2__s0
+    args: {<<: *proxy_flops, space: qwen3-4b_nkv, supernet: nkv_qw4b}
+
+  # ---- Phase B: measured prefill energy at Qwen3-1.7B, ~114 min per search ----
+  # The grid is the uniform baseline and random is the equal-budget control, so the three together are what
+  # the searching-beats-scaling claim needs at this scale.
+  - name: gpu__qwen3-1.7b_nkv__grid
+    args: {<<: *gpu, space: qwen3-1.7b_nkv_uniform, supernet: nkv_qw17, algo: grid}
+  - name: gpu__qwen3-1.7b_nkv__nsga2__s0
+    args: {<<: [*gpu, *nsga], space: qwen3-1.7b_nkv, supernet: nkv_qw17}
+  - name: gpu__qwen3-1.7b_nkv__nsga2__s1
+    args: {<<: [*gpu, *nsga], space: qwen3-1.7b_nkv, supernet: nkv_qw17, seed: 1}
+  - name: gpu__qwen3-1.7b_nkv__nsga2__s2
+    args: {<<: [*gpu, *nsga], space: qwen3-1.7b_nkv, supernet: nkv_qw17, seed: 2}
+  - name: gpu__qwen3-1.7b_nkv__random__s0
+    args: {<<: [*gpu, *rand], space: qwen3-1.7b_nkv, supernet: nkv_qw17}
+
+  # ---- Phase C: batched decoding, three objectives, ~7.4 h and ~8 h ----
+  # This is the only measured cell where energy and latency are both objectives, so it is the one that can
+  # show whether they pick the same architecture on real silicon.
+  - name: gpu-serve__qwen3-1.7b_nkv__nsga2__s0
+    args: {<<: [*gpu_serve, *nsga], space: qwen3-1.7b_nkv, supernet: nkv_qw17}
+  - name: gpu-serve__qwen3-4b_nkv__nsga2__s0
+    args: {<<: [*gpu_serve, *nsga], space: qwen3-4b_nkv, supernet: nkv_qw4b}

@@ -234,8 +234,19 @@ def elastic_attention_forward(self, hidden_states, position_embeddings, attentio
         # this adds one axis and keeps every plane fixed within its own rung.
         vi = self._v_rungs.index(v.shape[-1])
         av = self.kv_ang_v[rung][vi][:, :hv].to(q.device)
-        nrep_orig = q.shape[2] // n_kv_full if q.shape[2] >= n_kv_full else 1
-        q = kv_rotate(q, ak.repeat_interleave(nrep_orig, dim=0)[: q.shape[2]])
+        # Each surviving query head must be rotated by the angle of the KV head it will READ, and
+        # which KV head that is comes from _q_idx, built by head_index(n_q, ACTIVE n_kv, n_h).
+        # Assuming the survivors are grouped by n_kv_full is wrong whenever n_h < n_q, and silently
+        # so: at n_kv=2, n_h=8 on Qwen3-0.6B the survivors read KV heads [0,0,1,1,4,4,5,5] while
+        # repeat_interleave handed them angle rows [0..7]. Full width was unaffected. The output
+        # un-rotation below uses the same map, so the error did not cancel there either.
+        grp = q.shape[2] // n_kv_full if q.shape[2] >= n_kv_full else 1   # q heads per ORIGINAL kv
+        if q_idx is None:
+            src = torch.arange(q.shape[2], device=q.device) // max(grp, 1)
+        else:
+            src = q_idx.to(q.device) // max(self.config.num_attention_heads // n_kv_full, 1)
+        self._kv_src = src
+        q = kv_rotate(q, ak.index_select(0, src))
         k = kv_rotate(k, ak)
         v = kv_rotate(v, av)
         g = n_kv_full // kv_act
@@ -310,9 +321,7 @@ def elastic_attention_forward(self, hidden_states, position_embeddings, attentio
     unrot = getattr(self, "_kv_unrot", None)
     if unrot is not None:
         dv_half = out.shape[-1] // 2
-        n_kv_full = unrot.shape[0]
-        nrep_orig = out.shape[2] // n_kv_full if out.shape[2] >= n_kv_full else 1
-        aq = unrot[:, :dv_half].repeat_interleave(nrep_orig, dim=0)[: out.shape[2]]
+        aq = unrot[:, :dv_half].index_select(0, self._kv_src.to(out.device))
         out = kv_rotate(out, -aq.to(out.device))
 
     b, s, h, dv = out.shape

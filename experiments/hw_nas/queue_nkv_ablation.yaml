@@ -1,0 +1,45 @@
+# Search-recipe ablation on the five-knob elastic-KV supernet at SmolLM2-135M.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_nkv_ablation.yaml
+#
+# The figure this feeds has three curves of hypervolume against generation, which separate the search
+# algorithm from the search space:
+#
+#   NSGA-II + IHA     already run, tl-gemmini__smollm2-135m_nkv__nsga2__s{0,1,2}
+#   random  + IHA     one seed exists, this file adds seeds 1 and 2 so the curve has a spread
+#   NSGA-II + GQA     this file, the same search on a space whose query/key and value dimensions are
+#                     pinned to the base head dimension, which is what a grouped-query model exposes
+#
+# One backend only, Gemmini, because the comparison is between search recipes rather than between targets.
+#
+# IMPORTANT for whoever plots this. The hypervolume each run records is normalized to a box built from that
+# run's own full() and smallest() anchors, as cosearch.py does. The two spaces share full() but not
+# smallest(), so the recorded numbers are NOT comparable across the IHA and GQA curves. Rebuild the
+# per-generation front from evals.jsonl and recompute the hypervolume on one common box before plotting.
+#
+# Cost: 5 searches at roughly 30 to 55 min each on the simulator worker, so about 3 hours. These jobs use
+# the GPU for supernet scoring, so do not run this next to a ZEUS measurement queue.
+
+supernets:
+  nkv_sl135: runs/supernet/nkv_sl135/step2500
+
+templates:
+  tl: &tl {hw: timeloop, prefill_len: 128, decode_len: 32, hw_arg: [substrate=gemmini_16nm],
+           objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+  rand: &rand {algo: random, pop: 32, generations: 25}
+
+jobs:
+  # ---- NSGA-II on the grouped-query space, three seeds ----
+  - name: tl-gemmini__smollm2-135m_nkv_gqa__nsga2__s0
+    args: {<<: [*tl, *nsga], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135}
+  - name: tl-gemmini__smollm2-135m_nkv_gqa__nsga2__s1
+    args: {<<: [*tl, *nsga], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135, seed: 1}
+  - name: tl-gemmini__smollm2-135m_nkv_gqa__nsga2__s2
+    args: {<<: [*tl, *nsga], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135, seed: 2}
+
+  # ---- Random sampling on the full space, the two seeds the curve is missing ----
+  - name: tl-gemmini__smollm2-135m_nkv__random__s1
+    args: {<<: [*tl, *rand], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 1}
+  - name: tl-gemmini__smollm2-135m_nkv__random__s2
+    args: {<<: [*tl, *rand], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 2}

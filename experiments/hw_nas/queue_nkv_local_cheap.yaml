@@ -1,0 +1,69 @@
+# The short elastic-KV jobs for this machine, reordered 2026-09-19 after the first attempt was stopped.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_nkv_local_cheap.yaml
+#
+# WHY THE ORDER CHANGED. The first attempt started at 19:37 on the ring accelerator's grouped-query ablation
+# and was stopped at 19:56 by the supervisor for low memory, at generation 22 of 25. No kernel OOM was
+# recorded, and the machine reports 221 GB available afterwards, so the trigger is unproven. The leading
+# hypothesis is the Timeloop mapper traffic that the rDXE backend drives with eight workers, which fills the
+# page cache quickly. This ordering tests that rather than assuming it: every Timeloop job runs first, and
+# every rDXE job runs after them. If the Timeloop block completes and the rDXE block is stopped again, the
+# ring backend is implicated. If the Timeloop block is stopped too, it is not.
+#
+# Nothing about the experiments themselves changed. Same spaces, same supernets, same budgets, same seeds.
+# Only the sequence differs, so no result depends on this file's order.
+#
+# Resuming is cheap. Evaluations are cached in runs/cache across runs, so the interrupted ablation replays
+# its 736 completed evaluations from cache and continues at generation 22 rather than starting over.
+#
+# Within the rDXE block the order is by value: the grouped-query ablation first, since it decides whether the
+# Infinite-Head parameterization earns its place on the backend where the decoupling should matter most.
+
+supernets:
+  nkv_sl135: runs/supernet/nkv_sl135/step2500
+  nkv_qw06: runs/supernet/nkv_qw06/step2500
+
+templates:
+  rdxe: &rdxe {hw: rdxe, prefill_len: 128, decode_len: 32, hw_arg: [n_workers=8],
+               objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  tl: &tl {hw: timeloop, prefill_len: 128, decode_len: 32,
+           objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+  rand: &rand {algo: random, pop: 32, generations: 25}
+
+jobs:
+  # ---- Block 1: every Timeloop job, Qwen3-0.6B seeds 1 and 2 ----
+  # This is the scale with no seed intervals at all, and these jobs do not touch the rDXE evaluator.
+  - name: tl-gemmini__qwen3-0.6b_nkv__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: qwen3-0.6b_nkv, supernet: nkv_qw06, seed: 1}
+  - name: tl-eyeriss__qwen3-0.6b_nkv__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: qwen3-0.6b_nkv, supernet: nkv_qw06, seed: 1}
+  - name: tl-flat__qwen3-0.6b_nkv__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: qwen3-0.6b_nkv, supernet: nkv_qw06, seed: 1}
+  - name: tl-gemmini__qwen3-0.6b_nkv__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: qwen3-0.6b_nkv, supernet: nkv_qw06, seed: 2}
+  - name: tl-eyeriss__qwen3-0.6b_nkv__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: qwen3-0.6b_nkv, supernet: nkv_qw06, seed: 2}
+  - name: tl-flat__qwen3-0.6b_nkv__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: qwen3-0.6b_nkv, supernet: nkv_qw06, seed: 2}
+
+  # ---- Block 2: rDXE, the grouped-query ablation on the ring ----
+  # s0 resumes from cache at generation 22 of 25.
+  - name: rdxe__smollm2-135m_nkv_gqa__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135}
+  - name: rdxe__smollm2-135m_nkv_gqa__nsga2__s1
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135, seed: 1}
+  - name: rdxe__smollm2-135m_nkv_gqa__nsga2__s2
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135, seed: 2}
+
+  # ---- Block 3: rDXE, the ring's missing random seeds ----
+  - name: rdxe__smollm2-135m_nkv__random__s1
+    args: {<<: [*rdxe, *rand], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 1}
+  - name: rdxe__smollm2-135m_nkv__random__s2
+    args: {<<: [*rdxe, *rand], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 2}
+
+  # ---- Block 4: rDXE at Qwen3-0.6B, seeds 1 and 2 ----
+  - name: rdxe__qwen3-0.6b_nkv__nsga2__s1
+    args: {<<: [*rdxe, *nsga], space: qwen3-0.6b_nkv, supernet: nkv_qw06, seed: 1}
+  - name: rdxe__qwen3-0.6b_nkv__nsga2__s2
+    args: {<<: [*rdxe, *nsga], space: qwen3-0.6b_nkv, supernet: nkv_qw06, seed: 2}

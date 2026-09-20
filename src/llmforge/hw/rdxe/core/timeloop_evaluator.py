@@ -479,14 +479,17 @@ class TimeloopEvaluator:
 # ---------------------------------------------------------------------------
 def enumerate_gemm_shapes_decode(layer_spec: dict, n_embd: int,
                                  ctx: int) -> List[Tuple[str, int, int, int]]:
-    """List the 7 GEMM shapes (name, in_ch, out_ch, seq_len) of one IHA layer
-    in decode mode.  'infinite' and MHA variants covered."""
+    """List the GEMM shapes (name, in_ch, out_ch, seq_len) of one IHA layer in decode mode.
+
+    Seven GEMMs for 'infinite' attention and the two MLP GEMMs for other variants. A SwiGLU MLP, the
+    default mlp_variant, adds MLP_gate with the shape of MLP_FC1."""
     nh  = layer_spec['n_head']
     nkv = layer_spec['n_kv_group']
     qk  = layer_spec['n_qk_head_dim']
     vd  = layer_spec['n_v_head_dim']
     mlp = layer_spec['mlp_size']
     variant = layer_spec.get('attention_variant', 'infinite')
+    gate = [('MLP_gate', n_embd, mlp, 1)] if layer_spec.get('mlp_variant', 'swiglu') == 'swiglu' else []
 
     # DXE spatial constraint: context dimension >= 32 and in mapper-friendly grid
     def _quantize_ctx(c):
@@ -502,7 +505,7 @@ def enumerate_gemm_shapes_decode(layer_spec: dict, n_embd: int,
         return [
             ('MLP_FC1',  n_embd, mlp,    1),
             ('MLP_FC2',  mlp,    n_embd, 1),
-        ]
+        ] + gate
 
     return [
         ('QK_gen',    n_embd,       qk * (nh + nkv), 1),
@@ -512,7 +515,7 @@ def enumerate_gemm_shapes_decode(layer_spec: dict, n_embd: int,
         ('ATTN_proj', vd * nh,      n_embd,           1),
         ('MLP_FC1',   n_embd,       mlp,              1),
         ('MLP_FC2',   mlp,          n_embd,           1),
-    ]
+    ] + gate
 
 
 def enumerate_shapes_for_model(model_layer: dict, n_embd: int,

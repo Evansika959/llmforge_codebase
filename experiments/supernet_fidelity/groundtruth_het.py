@@ -18,8 +18,16 @@ exactly what dedicated training of that architecture means. The forward is bit-e
 dense extraction where one exists (verified 1e-5 max|dlogit| at three configs), so the two arms are
 measured on the same footing. Inactive weights still decay under AdamW; they are never read.
 
+`--init` picks the starting weights. The default `base` starts from the published checkpoint, the
+ground-truth protocol. A supernet checkpoint directory instead continues training the slice from the
+supernet's weights, loaded as the search loads them, with the KV-group alignment and the per-width
+temperature, which measures how much a searched architecture recovers from where the supernet left
+it. An architecture may carry a per-layer `n_kv` list; without one every layer keeps the base n_kv.
+
   python experiments/supernet_fidelity/groundtruth_het.py --list                       # what would be trained
   python experiments/supernet_fidelity/groundtruth_het.py --arch H03                   # train one
+  python experiments/supernet_fidelity/groundtruth_het.py --arch R50 --init runs/supernet/nkv_sl135/step2500 \
+      --set runs/groundtruth/smollm2-135m_nkv_ft/ARCHS.json --out runs/groundtruth/smollm2-135m_nkv_ft
 """
 import argparse, json, os, sys, time
 
@@ -34,6 +42,7 @@ from llmforge.supernet.data.collate import build_docaware
 from llmforge.supernet.data.datamix import DataMix
 from llmforge.supernet.elastic import (add_elastic_temperature, enable_elastic, pair_order_for,
                                 set_elastic_backend, set_elastic_config)
+from llmforge.supernet.search.nsga import load_supernet
 from llmforge.supernet.space import ElasticConfig
 from llmforge.supernet.train.losses import chunked_ce_kd
 from llmforge.supernet.train.schedule import cosine_warmup
@@ -57,6 +66,8 @@ def main():
     ap.add_argument("--data-seed", type=int, default=0)
     ap.add_argument("--mix", default="sl_fineweb=0.40,sl_code=0.25,sl_math=0.20,sl_rag=0.15")
     ap.add_argument("--out", default=f"{RUNS}/gt135_het")
+    ap.add_argument("--init", default="base",
+                    help="'base' for the published checkpoint, or a supernet checkpoint directory")
     ap.add_argument("--grad-ckpt", action="store_true",
                     help="non-reentrant gradient checkpointing, for models above SmolLM2 scale")
     a = ap.parse_args()
@@ -71,21 +82,25 @@ def main():
         return
 
     A = archs[a.arch]
-    cfg = ElasticConfig(spec, A["d_qk"], A["d_v"], [spec.n_kv] * spec.n_layers,
+    cfg = ElasticConfig(spec, A["d_qk"], A["d_v"], A.get("n_kv", [spec.n_kv] * spec.n_layers),
                         A["n_h"], A["d_mlp"])
     order = pair_order_for(spec)
     os.makedirs(a.out, exist_ok=True)
     dev, S = "cuda", 4096
     print(f"[{a.arch}] w={A['w']:.3f} kv={A['kv']:.3f} het={A.get('het',0):.3f} "
-          f"steps={a.steps} lr={a.lr}", flush=True)
+          f"steps={a.steps} lr={a.lr} init={a.init}", flush=True)
 
     teacher = AutoModelForCausalLM.from_pretrained(
         spec.repo, torch_dtype=torch.bfloat16).to(dev).eval()
     for p in teacher.parameters():
         p.requires_grad_(False)
-    student = AutoModelForCausalLM.from_pretrained(
-        spec.repo, torch_dtype=torch.bfloat16).to(dev)
-    enable_elastic(student); set_elastic_backend("sdpa")
+    if a.init == "base":
+        student = AutoModelForCausalLM.from_pretrained(
+            spec.repo, torch_dtype=torch.bfloat16).to(dev)
+        enable_elastic(student)
+    else:
+        student, _, _ = load_supernet(a.init, spec, dev=dev)
+    set_elastic_backend("sdpa")
     # enable_elastic patches the CLASS, so the teacher -- same family -- now runs the elastic
     # forward too and needs a config of its own. Full width is bit-equivalent to the stock forward
     # (4.0e-05 max|dlogit|, 100% argmax), so this leaves the teacher exactly as it was.
@@ -93,7 +108,7 @@ def main():
     set_elastic_config(teacher, full.d_qk, full.d_v, order, n_h=full.n_h, d_mlp=full.d_mlp)
     teacher.config.use_cache = False
     student.config.use_cache = False
-    set_elastic_config(student, cfg.d_qk, cfg.d_v, order, n_h=cfg.n_h, d_mlp=cfg.d_mlp)
+    set_elastic_config(student, cfg.d_qk, cfg.d_v, order, n_h=cfg.n_h, d_mlp=cfg.d_mlp, n_kv=cfg.n_kv)
     if a.grad_ckpt:
         # Checkpointing only activates in train mode. These models have no dropout, so train
         # mode changes nothing else.
@@ -137,7 +152,7 @@ def main():
     # in this project is stored.
     sd = {k: v.contiguous() for k, v in student.state_dict().items() if k != "lm_head.weight"}
     save_file(sd, os.path.join(d, "model.safetensors"))
-    json.dump({**A, "steps": a.steps, "lr": a.lr, "model": spec.key,
+    json.dump({**A, "steps": a.steps, "lr": a.lr, "model": spec.key, "init": a.init,
                "parent_head_dim": spec.head_dim, "heterogeneous": True,
                "hours": (time.time() - t0) / 3600},
               open(os.path.join(d, "arch.json"), "w"), indent=1)

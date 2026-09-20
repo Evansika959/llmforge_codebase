@@ -52,8 +52,11 @@ RDXE_DEFAULT_POWER_MIN_W  = 0.005
 _INF = float("inf")
 
 
-def _layer_dict_to_spec(layer: dict, default_n_embd: int) -> dict:
-    """Convert an Individual layer dict into the rDXE layer-spec format."""
+def _layer_dict_to_spec(layer: dict, default_n_embd: int, mlp_variant: str = "swiglu") -> dict:
+    """Convert an Individual layer dict into the rDXE layer-spec format.
+
+    A layer's own mlp_variant overrides `mlp_variant`, which callers take from the individual's globals.
+    """
     d  = default_n_embd
     nh = int(layer.get("n_head", 8))
     return {
@@ -65,6 +68,7 @@ def _layer_dict_to_spec(layer: dict, default_n_embd: int) -> dict:
         "mlp_size":          int(layer.get("mlp_size", 4 * d)),
         "n_cproj":           1,
         "attention_variant": layer.get("attention_variant", "infinite"),
+        "mlp_variant":       layer.get("mlp_variant", mlp_variant),
     }
 
 
@@ -162,7 +166,8 @@ def run_rdxe_eval(individuals: Sequence[Dict[str, Any]],
         g = ind["globals"]
         layers_raw = ind["layers"]
         mask = g.get("layer_mask", [True] * len(layers_raw))
-        active = [_layer_dict_to_spec(l, g["n_embd"]) for l, m in zip(layers_raw, mask) if m]
+        active = [_layer_dict_to_spec(l, g["n_embd"], g.get("mlp_variant", "swiglu"))
+                  for l, m in zip(layers_raw, mask) if m]
         if not active:
             active_layers.append(None)
             continue

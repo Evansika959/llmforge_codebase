@@ -19,8 +19,9 @@ MODELS = ["smollm2-135m", "smollm2-360m", "qwen3-0.6b", "qwen3-1.7b", "qwen3-4b"
 
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("partition", ["uniform", "blocks", "per_layer"])
-def test_operators_stay_in_space(model, partition):
-    s = ElasticSearchSpace(model, partition=partition, seed=0)
+@pytest.mark.parametrize("with_nkv", [False, True])
+def test_operators_stay_in_space(model, partition, with_nkv):
+    s = ElasticSearchSpace(model, partition=partition, seed=0, with_nkv=with_nkv)
     for _ in range(40):
         a, b = s.sample(), s.sample()
         c, _ = s.crossover(a, b)
@@ -32,15 +33,17 @@ def test_operators_stay_in_space(model, partition):
 
 
 @pytest.mark.parametrize("model", MODELS)
-def test_params_match_supernet_cost_model(model):
-    s = ElasticSearchSpace(model, partition="blocks", seed=1)
+@pytest.mark.parametrize("with_nkv", [False, True])
+def test_params_match_supernet_cost_model(model, with_nkv):
+    s = ElasticSearchSpace(model, partition="blocks", seed=1, with_nkv=with_nkv)
     for ind in (s.full(), s.smallest(), s.sample(), s.sample()):
         assert Individual.from_dict(ind).estimate_params() == s.to_elastic_config(ind).weight_params()
 
 
 def test_shipped_configs_validate():
+    # Width-only and elastic-KV spaces, each with a blocks and a uniform partition.
     paths = sorted((CONFIGS / "search_spaces").glob("*.yaml"))
-    assert len(paths) == 2 * len(MODELS)
+    assert len(paths) == 4 * len(MODELS)
     for p in paths:
         ElasticSearchSpace.from_yaml(str(p))
 

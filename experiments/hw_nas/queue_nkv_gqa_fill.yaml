@@ -1,0 +1,61 @@
+# Completing the grouped-query ablation across the off-chip substrates, plus two orphaned proxy jobs.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_nkv_gqa_fill.yaml
+#
+# WHY. The ablation that asks what the Infinite-Head parameterization buys currently rests on two backends
+# that disagree. On Gemmini the Infinite-Head space leads the grouped-query one by 2.9%, with the three-seed
+# intervals separated by only 0.0029. On the ring accelerator it trails by 5.0%, and four independent
+# comparisons agree on that: matched-loss cost, front coverage in both directions, and both cost axes. One
+# backend for and one against is not a result. Eyeriss and FLAT are the other two off-chip substrates, so
+# they decide whether the Gemmini outcome generalises to backends that stream weights from off chip or is
+# specific to Gemmini.
+#
+# Jobs are grouped by backend rather than interleaved by seed. If this is interrupted, that yields one
+# complete three-seed backend rather than two half-finished ones.
+#
+# Blocks 1 and 2 are Timeloop. Block 3 is analytic and touches no hardware model at all: those two jobs were
+# attempted on the second worker at 19:39 on 2026-09-19, failed because HF_HUB_OFFLINE was set and the base
+# checkpoint was not cached there, and are now permanently skipped by that runner, which keeps an `attempted`
+# set for the life of the process. Being analytic, they are machine independent, so running them here gives
+# the same numbers the other worker would have produced. They are claim 2's hardware-agnostic control at
+# Qwen scale.
+#
+# Estimated from measured medians of the equivalent cells: blocks 1 and 2 about 30 min each for six jobs,
+# block 3 about 25 min each, so roughly 3.8 hours total. These jobs use the GPU for supernet scoring but
+# measure no energy on it, so they may run beside the second worker's ZEUS queue without affecting it.
+
+supernets:
+  nkv_sl135: runs/supernet/nkv_sl135/step2500
+  nkv_qw17: runs/supernet/nkv_qw17/step2500
+
+templates:
+  tl: &tl {hw: timeloop, prefill_len: 128, decode_len: 32,
+           objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+  proxy_params: &proxy_params {hw: analytic, algo: nsga2, pop: 32, generations: 25,
+                               objectives: [val_loss, params_M]}
+  proxy_flops: &proxy_flops {hw: analytic, algo: nsga2, pop: 32, generations: 25,
+                             objectives: [val_loss, flops_per_token], analytic_seq_len: 512}
+
+jobs:
+  # ---- Block 1: Eyeriss, grouped-query space, three seeds ----
+  - name: tl-eyeriss__smollm2-135m_nkv_gqa__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135}
+  - name: tl-eyeriss__smollm2-135m_nkv_gqa__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135, seed: 1}
+  - name: tl-eyeriss__smollm2-135m_nkv_gqa__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135, seed: 2}
+
+  # ---- Block 2: FLAT, grouped-query space, three seeds ----
+  - name: tl-flat__smollm2-135m_nkv_gqa__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135}
+  - name: tl-flat__smollm2-135m_nkv_gqa__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135, seed: 1}
+  - name: tl-flat__smollm2-135m_nkv_gqa__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-135m_nkv_gqa, supernet: nkv_sl135, seed: 2}
+
+  # ---- Block 3: the two proxy jobs the second worker skipped ----
+  - name: proxy-params__qwen3-1.7b_nkv__nsga2__s0
+    args: {<<: *proxy_params, space: qwen3-1.7b_nkv, supernet: nkv_qw17}
+  - name: proxy-flops__qwen3-1.7b_nkv__nsga2__s0
+    args: {<<: *proxy_flops, space: qwen3-1.7b_nkv, supernet: nkv_qw17}

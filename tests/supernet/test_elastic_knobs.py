@@ -242,3 +242,27 @@ def test_every_nh_nkv_combination_is_constructible():
                                n_h=nh, d_mlp=spec.d_mlp, n_kv=kv)
             n += 1
     assert n == 13, n
+
+
+def test_query_heads_get_their_own_kv_head_angle():
+    """Every surviving query head must be rotated by the angle of the KV head it READS.
+
+    The rotation preserves the attention score only because q and k get the SAME transform,
+    (Rq).(Rk) = q.k, so a query head given another KV head's angle computes a wrong score rather
+    than an approximate one. Which KV head a survivor reads comes from _q_idx, built by
+    head_index(n_q, ACTIVE n_kv, n_h). The forward used to assume the survivors were grouped by the
+    model's FULL n_kv, which is right only at n_h == n_q, so full-width sweeps were clean while most
+    sampled training configurations were corrupted. The test asserts the index map itself, and that
+    the old map differs at every case, so it cannot pass vacuously.
+    """
+    for key, kv, nh in (("smollm2-360m", 1, 5), ("smollm2-135m", 1, 3),
+                        ("qwen3-0.6b", 2, 8), ("qwen3-0.6b", 4, 8), ("qwen3-4b", 2, 16)):
+        spec = SPECS[key]
+        per_kv = spec.n_q // spec.n_kv                    # query heads per ORIGINAL kv head
+        qi = head_index(spec.n_q, kv, nh)
+        reads = [int(q) // per_kv for q in qi]            # the kv head each survivor attends to
+        got = [int(x) for x in (qi // per_kv)]            # what the forward looks up
+        assert reads == got, (key, kv, nh, reads, got)
+        nrep = nh // spec.n_kv if nh >= spec.n_kv else 1
+        naive = [i // max(nrep, 1) for i in range(nh)]
+        assert naive != reads, f"{key} n_kv={kv} n_h={nh}: the old map happened to be right here"

@@ -1,0 +1,55 @@
+# Repeat seeds for the simulator searches, so the reported savings carry a seed spread instead of resting
+# on one run. The s0 searches of queue_sim.yaml and queue_sim_rdxe.yaml already exist, so this queue adds
+# s1 and s2 for the four simulator targets at the two SmolLM2 scales.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_sim_seeds.yaml
+#
+# All eight s1 jobs run before any s2 job, so an interrupted queue still leaves every cell with two seeds
+# rather than three seeds on half of them. Workload, objectives and operators match the s0 runs exactly,
+# and only --seed differs.
+
+supernets:
+  sl135_lr8e-3: runs/supernet/sl135_lr8e-3/step2500
+  sl360_lr4e-3: runs/supernet/sl360_lr4e-3/step2500
+
+templates:
+  tl: &tl {hw: timeloop, prefill_len: 128, decode_len: 32, objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  rdxe: &rdxe {hw: rdxe, prefill_len: 128, decode_len: 32, hw_arg: [n_workers=8], objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+
+jobs:
+  # ---- seed 1 ----
+  - name: tl-gemmini__smollm2-135m__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-135m, supernet: sl135_lr8e-3, seed: 1}
+  - name: tl-eyeriss__smollm2-135m__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-135m, supernet: sl135_lr8e-3, seed: 1}
+  - name: tl-flat__smollm2-135m__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-135m, supernet: sl135_lr8e-3, seed: 1}
+  - name: rdxe__smollm2-135m__nsga2__s1
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m, supernet: sl135_lr8e-3, seed: 1}
+  - name: tl-gemmini__smollm2-360m__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-360m, supernet: sl360_lr4e-3, seed: 1}
+  - name: tl-eyeriss__smollm2-360m__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-360m, supernet: sl360_lr4e-3, seed: 1}
+  - name: tl-flat__smollm2-360m__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-360m, supernet: sl360_lr4e-3, seed: 1}
+  - name: rdxe__smollm2-360m__nsga2__s1
+    args: {<<: [*rdxe, *nsga], space: smollm2-360m, supernet: sl360_lr4e-3, seed: 1}
+
+  # ---- seed 2 ----
+  - name: tl-gemmini__smollm2-135m__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-135m, supernet: sl135_lr8e-3, seed: 2}
+  - name: tl-eyeriss__smollm2-135m__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-135m, supernet: sl135_lr8e-3, seed: 2}
+  - name: tl-flat__smollm2-135m__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-135m, supernet: sl135_lr8e-3, seed: 2}
+  - name: rdxe__smollm2-135m__nsga2__s2
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m, supernet: sl135_lr8e-3, seed: 2}
+  - name: tl-gemmini__smollm2-360m__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-360m, supernet: sl360_lr4e-3, seed: 2}
+  - name: tl-eyeriss__smollm2-360m__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-360m, supernet: sl360_lr4e-3, seed: 2}
+  - name: tl-flat__smollm2-360m__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-360m, supernet: sl360_lr4e-3, seed: 2}
+  - name: rdxe__smollm2-360m__nsga2__s2
+    args: {<<: [*rdxe, *nsga], space: smollm2-360m, supernet: sl360_lr4e-3, seed: 2}

@@ -1,0 +1,122 @@
+# Re-run of the search experiments on the five-knob (elastic-KV) supernets.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_nkv_main.yaml
+#
+# Why this file exists. Every search result in the paper was produced against the four-knob supernets, whose
+# spaces fix n_kv. The width knobs cannot take the key-value cache below 25% of the base at any scale, which
+# is arithmetic rather than a search result, so those runs could not reach the region the ring accelerator
+# most wants. The five-knob supernets make n_kv elastic and take the floor to 3 to 8%.
+#
+# This file deliberately excludes the Pixel Watch 5 backend, whose predictor is being retrained, and every
+# ZEUS energy measurement, which needs an exclusive quiet GPU and lives in queue_nkv_gpu.yaml.
+#
+# These jobs still occupy the GPU. Every search scores supernet slices on it, and on the simulator backends
+# that software scoring dominates the run: rdxe__smollm2-135m__nsga2__s0 spent 1286 s scoring against 58 s
+# simulating. What they do not need is an exclusive measurement window, so they tolerate sharing the card
+# while a ZEUS job never does. Do not run this queue and queue_nkv_gpu.yaml at the same time.
+#
+# Nothing here is gated. queue.py runs jobs one at a time in order and skips any whose output directory
+# already holds DONE. The six uniform grids and six seed-0 searches completed on 2026-09-15 are not repeated
+# here, so this file holds only work that does not yet exist.
+#
+# Wall-clock estimates come from the measured medians of the existing runs. The elastic-KV space is larger,
+# so its searches run roughly 1.2 to 1.8 times longer than the width-only ones at the same cell.
+#
+#   Phase A  proxies, 4 runs            ~1.4 h
+#   Phase B  seeds 1 and 2, 16 runs     ~9.7 h
+#   Phase C  random baselines, 2 runs   ~1.3 h
+#   Phase D  Qwen3-0.6B, 8 runs         ~4.5 h
+#   total                               ~17 h
+
+supernets:
+  nkv_sl135: runs/supernet/nkv_sl135/step2500
+  nkv_sl360: runs/supernet/nkv_sl360/step2500
+  nkv_qw06: runs/supernet/nkv_qw06/step2500
+
+# Shared argument sets, merged into jobs with YAML merge keys. The queue runner ignores this key.
+templates:
+  tl: &tl {hw: timeloop, prefill_len: 128, decode_len: 32, objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  rdxe: &rdxe {hw: rdxe, prefill_len: 128, decode_len: 32, hw_arg: [n_workers=8],
+               objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+  rand: &rand {algo: random, pop: 32, generations: 25}
+  proxy_params: &proxy_params {hw: analytic, algo: nsga2, pop: 32, generations: 25,
+                               objectives: [val_loss, params_M]}
+  proxy_flops: &proxy_flops {hw: analytic, algo: nsga2, pop: 32, generations: 25,
+                             objectives: [val_loss, flops_per_token], analytic_seq_len: 512}
+
+jobs:
+  # ---- Phase A: the hardware-agnostic controls, ~20 min each ----
+  # Without these there is no way to show that the off-chip backends pick the architecture a proxy already
+  # picks, which is the control the weight-placement claim rests on.
+  - name: proxy-params__smollm2-135m_nkv__nsga2__s0
+    args: {<<: *proxy_params, space: smollm2-135m_nkv, supernet: nkv_sl135}
+  - name: proxy-flops__smollm2-135m_nkv__nsga2__s0
+    args: {<<: *proxy_flops, space: smollm2-135m_nkv, supernet: nkv_sl135}
+  - name: proxy-params__smollm2-360m_nkv__nsga2__s0
+    args: {<<: *proxy_params, space: smollm2-360m_nkv, supernet: nkv_sl360}
+  - name: proxy-flops__smollm2-360m_nkv__nsga2__s0
+    args: {<<: *proxy_flops, space: smollm2-360m_nkv, supernet: nkv_sl360}
+
+  # ---- Phase B: seeds 1 and 2 for the cells that already have seed 0 ----
+  # Seed intervals are what let a contrast between two backends be reported at all.
+  - name: tl-gemmini__smollm2-135m_nkv__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 1}
+  - name: tl-eyeriss__smollm2-135m_nkv__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 1}
+  - name: tl-flat__smollm2-135m_nkv__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 1}
+  - name: rdxe__smollm2-135m_nkv__nsga2__s1
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 1}
+  - name: tl-gemmini__smollm2-360m_nkv__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-360m_nkv, supernet: nkv_sl360, seed: 1}
+  - name: tl-eyeriss__smollm2-360m_nkv__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-360m_nkv, supernet: nkv_sl360, seed: 1}
+  - name: tl-flat__smollm2-360m_nkv__nsga2__s1
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-360m_nkv, supernet: nkv_sl360, seed: 1}
+  - name: rdxe__smollm2-360m_nkv__nsga2__s1
+    args: {<<: [*rdxe, *nsga], space: smollm2-360m_nkv, supernet: nkv_sl360, seed: 1}
+
+  - name: tl-gemmini__smollm2-135m_nkv__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 2}
+  - name: tl-eyeriss__smollm2-135m_nkv__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 2}
+  - name: tl-flat__smollm2-135m_nkv__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 2}
+  - name: rdxe__smollm2-135m_nkv__nsga2__s2
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135, seed: 2}
+  - name: tl-gemmini__smollm2-360m_nkv__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: smollm2-360m_nkv, supernet: nkv_sl360, seed: 2}
+  - name: tl-eyeriss__smollm2-360m_nkv__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: smollm2-360m_nkv, supernet: nkv_sl360, seed: 2}
+  - name: tl-flat__smollm2-360m_nkv__nsga2__s2
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: smollm2-360m_nkv, supernet: nkv_sl360, seed: 2}
+  - name: rdxe__smollm2-360m_nkv__nsga2__s2
+    args: {<<: [*rdxe, *nsga], space: smollm2-360m_nkv, supernet: nkv_sl360, seed: 2}
+
+  # ---- Phase C: random sampling at the NSGA-II evaluation count ----
+  # The uniform grids of 2026-09-15 are already the other half of this baseline.
+  - name: tl-gemmini__smollm2-135m_nkv__random__s0
+    args: {<<: [*tl, *rand], hw_arg: [substrate=gemmini_16nm], space: smollm2-135m_nkv, supernet: nkv_sl135}
+  - name: rdxe__smollm2-135m_nkv__random__s0
+    args: {<<: [*rdxe, *rand], space: smollm2-135m_nkv, supernet: nkv_sl135}
+
+  # ---- Phase D: Qwen3-0.6B, the third scale, on the newly linked nkv_qw06 ----
+  # Its n_kv grid is {1,2,4,8} rather than SmolLM2's binary one, so this is the first cell where the knob is
+  # graded rather than all-or-nothing.
+  - name: rdxe__qwen3-0.6b_nkv__grid
+    args: {<<: *rdxe, space: qwen3-0.6b_nkv_uniform, supernet: nkv_qw06, algo: grid}
+  - name: tl-gemmini__qwen3-0.6b_nkv__grid
+    args: {<<: *tl, hw_arg: [substrate=gemmini_16nm], space: qwen3-0.6b_nkv_uniform, supernet: nkv_qw06, algo: grid}
+  - name: rdxe__qwen3-0.6b_nkv__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: qwen3-0.6b_nkv, supernet: nkv_qw06}
+  - name: tl-gemmini__qwen3-0.6b_nkv__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: qwen3-0.6b_nkv, supernet: nkv_qw06}
+  - name: tl-eyeriss__qwen3-0.6b_nkv__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: qwen3-0.6b_nkv, supernet: nkv_qw06}
+  - name: tl-flat__qwen3-0.6b_nkv__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: qwen3-0.6b_nkv, supernet: nkv_qw06}
+  - name: proxy-params__qwen3-0.6b_nkv__nsga2__s0
+    args: {<<: *proxy_params, space: qwen3-0.6b_nkv, supernet: nkv_qw06}
+  - name: proxy-flops__qwen3-0.6b_nkv__nsga2__s0
+    args: {<<: *proxy_flops, space: qwen3-0.6b_nkv, supernet: nkv_qw06}

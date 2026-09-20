@@ -1,6 +1,7 @@
 """Timeloop GEMM backend: energy and latency of IHA transformer layers on accelerator substrates.
 
-A transformer layer with infinite-head attention decomposes into seven GEMMs:
+A transformer layer with infinite-head attention decomposes into seven GEMMs, and a SwiGLU MLP adds an
+eighth for its gate projection:
 
     0  QK_gen     n_embd -> n_qk_head_dim * (n_head + n_kv_group)
     1  V_gen      n_embd -> n_v_head_dim * n_kv_group
@@ -9,11 +10,13 @@ A transformer layer with infinite-head attention decomposes into seven GEMMs:
     4  ATTN_proj  n_v_head_dim * n_head -> n_embd
     5  MLP_FC1    n_embd -> mlp_size
     6  MLP_FC2    mlp_size -> n_embd
+    7  MLP_gate   n_embd -> mlp_size, SwiGLU only
 
 evaluate_layer maps every GEMM with the Timeloop mapper, multiplies the two attention GEMMs by the
 number of KV groups, and subtracts the DRAM traffic that operator fusion keeps on chip (see
-compute_fusion_savings). A layer whose attention_variant is not "infinite" contributes only the two
-MLP GEMMs.
+compute_fusion_savings). A layer whose attention_variant is not "infinite" contributes only its
+MLP GEMMs. The MLP variant comes from the layer or the individual's globals and defaults to "swiglu",
+the rule llmforge.search.individual uses for parameter counts.
 
 Prefill mode maps every GEMM at the prompt length. Decode mode maps the projections at one token and
 the attention GEMMs at the KV-cache length, so a decode result is the cost of one generated token.
@@ -434,13 +437,15 @@ def compute_fusion_savings(
 
 def evaluate_layer(layer: dict, n_embd: int, seq_length: int, work_dir: Optional[str],
                    fused: bool = True, arch: str = DEFAULT_ARCH,
-                   mode: str = "prefill") -> dict:
+                   mode: str = "prefill", mlp_variant: str = "swiglu") -> dict:
     """Evaluate a single layer's hardware metrics.
 
     Args:
         mode: "prefill" -- all ops use seq_length (GEMM, batch of tokens)
               "decode"  -- projections use L=1 (GEMV, one token),
                            attention uses L=seq_length as context/KV-cache length
+        mlp_variant: "swiglu" adds the gate projection, a GEMM with the shape of MLP_FC1. Any other
+              value keeps the two-matrix MLP.
     """
     cfg = get_arch_config(arch)
     try:
@@ -492,6 +497,11 @@ def evaluate_layer(layer: dict, n_embd: int, seq_length: int, work_dir: Optional
             seq_length=proj_seq, work_dir=work_dir, arch=arch)
 
         all_ops = [qk_gen, v_gen, qk_attn, pv_attn, attn_proj, mlp_fc1, mlp_fc2]
+        if mlp_variant == "swiglu":
+            # Op 7: MLP_gate [embd -> mlp, proj_seq], the gate projection of a SwiGLU MLP
+            all_ops.append(run_GEMM_evaluation_detailed(
+                in_channel=n_embd, out_channel=mlp_size,
+                seq_length=proj_seq, work_dir=work_dir, arch=arch))
 
         if fused:
             # Define the producer->consumer fusion edges:
@@ -502,6 +512,7 @@ def evaluate_layer(layer: dict, n_embd: int, seq_length: int, work_dir: Optional
             #   PV_attn(3) -> attended --> ATTN_proj(4)
             #   ATTN_proj(4) -> hidden' --> MLP_FC1(5)
             #   MLP_FC1(5) -> expanded --> MLP_FC2(6)
+            #   ATTN_proj(4) -> hidden' --> MLP_gate(7) -> gate --> MLP_FC2(6), SwiGLU only
             #
             # Fusible edges (producer output = consumer input, stays on-chip):
             fusion_edges = [
@@ -512,6 +523,9 @@ def evaluate_layer(layer: dict, n_embd: int, seq_length: int, work_dir: Optional
                 (4, 5),  # ATTN_proj outputs -> MLP_FC1 inputs (hidden states)
                 (5, 6),  # MLP_FC1 outputs -> MLP_FC2 inputs (expanded activations)
             ]
+            if mlp_variant == "swiglu":
+                # The gate activation multiplies MLP_FC1's output elementwise on the way into MLP_FC2.
+                fusion_edges += [(4, 7), (7, 6)]
             # Savings read the per-instance stats, so they run before the KV-group scaling below.
             # The two attention GEMMs run once per KV group.
             saved_energy_uJ, saved_cycles = compute_fusion_savings(
@@ -552,13 +566,19 @@ def evaluate_layer(layer: dict, n_embd: int, seq_length: int, work_dir: Optional
         mlp_fc2 = run_GEMM_evaluation_detailed(
             in_channel=mlp_size, out_channel=n_embd,
             seq_length=proj_seq, work_dir=work_dir, arch=arch)
+        mlp_ops = [mlp_fc1, mlp_fc2]
+        fusion_edges = [(0, 1)]  # MLP_FC1 -> MLP_FC2
+        if mlp_variant == "swiglu":
+            mlp_ops.append(run_GEMM_evaluation_detailed(
+                in_channel=n_embd, out_channel=mlp_size,
+                seq_length=proj_seq, work_dir=work_dir, arch=arch))
+            fusion_edges.append((2, 1))  # MLP_gate -> MLP_FC2
 
-        all_summaries = [mlp_fc1[0], mlp_fc2[0]]
+        all_summaries = [op[0] for op in mlp_ops]
 
         if fused:
-            fusion_edges = [(0, 1)]  # MLP_FC1 -> MLP_FC2
             saved_energy_uJ, saved_cycles = compute_fusion_savings(
-                [mlp_fc1, mlp_fc2], fusion_edges,
+                mlp_ops, fusion_edges,
                 dram_read_bw=cfg.dram_read_bw, dram_write_bw=cfg.dram_write_bw)
             layer_stats = aggregate_stats(all_summaries)
             if layer_stats['energy_uJ'] is not None:
@@ -580,7 +600,8 @@ def eval_individual(individual: Dict[str, Any], work_dir: Optional[str], fused: 
     """Sum evaluate_layer over the active layers of an Individual dict.
 
     Uses `globals.block_size` as the sequence length: the prompt length in prefill mode and the
-    KV-cache length in decode mode. Callers set it before the call (see HwTimeloop).
+    KV-cache length in decode mode. Callers set it before the call (see HwTimeloop). A layer's
+    mlp_variant overrides the one in the globals, which defaults to "swiglu".
     """
     global_spec = individual["globals"]
     layer_spec = individual["layers"]
@@ -593,7 +614,9 @@ def eval_individual(individual: Dict[str, Any], work_dir: Optional[str], fused: 
     hw_eval_list = []
     for i, layer in enumerate(layer_spec):
         if layer_mask[i] == 1:
-            layer_stats = evaluate_layer(layer, n_embd, seq_length, work_dir, fused=fused, arch=arch, mode=mode)
+            mlp_variant = layer.get("mlp_variant", global_spec.get("mlp_variant", "swiglu"))
+            layer_stats = evaluate_layer(layer, n_embd, seq_length, work_dir, fused=fused, arch=arch, mode=mode,
+                                         mlp_variant=mlp_variant)
             hw_eval_list.append(layer_stats)
 
     aggregated_stats = aggregate_stats(hw_eval_list)

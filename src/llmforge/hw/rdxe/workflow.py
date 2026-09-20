@@ -31,7 +31,7 @@ from .core.constants import (
     INTER_CHIP_LATENCY_CYCLES,
 )
 from .core.scaled_arch import (
-    ScaledChipSpec, layer_weight_bytes, kv_bytes_per_token_per_layer,
+    ScaledChipSpec, layer_weight_bytes, kv_bytes_per_token_per_layer, mlp_matrix_count,
     _factor_cores,
 )
 from .core.timeloop_evaluator import (
@@ -79,7 +79,7 @@ class LayerResource:
 def layer_key(layer: dict) -> tuple:
     """Hashable shape of one layer spec, so each distinct shape is costed once."""
     return (layer['n_head'], layer['n_kv_group'], layer['n_qk_head_dim'], layer['n_v_head_dim'],
-            layer['mlp_size'], layer.get('attention_variant', 'infinite'))
+            layer['mlp_size'], layer.get('attention_variant', 'infinite'), layer.get('mlp_variant', 'swiglu'))
 
 
 def profile_layers(layers: List[dict], n_embd: int, ctx: int, n_users: int = 1
@@ -89,7 +89,7 @@ def profile_layers(layers: List[dict], n_embd: int, ctx: int, n_users: int = 1
     for i, layer in enumerate(layers):
         mac_est = (n_embd * layer['n_qk_head_dim'] * (layer['n_head'] + layer['n_kv_group'])
                    + n_embd * layer['n_v_head_dim'] * (layer['n_kv_group'] + layer['n_head'])
-                   + 2 * n_embd * layer['mlp_size'])
+                   + mlp_matrix_count(layer) * n_embd * layer['mlp_size'])
         profile.append(LayerResource(
             layer_idx=i, weight_B=layer_weight_bytes(layer, n_embd),
             kv_bytes_ctx=kv_bytes_per_token_per_layer(layer) * ctx * n_users,
@@ -301,7 +301,7 @@ def simulate_ring(model_info: dict, packing: Packing, ctx: int,
         nh, nkv = layer['n_head'], layer['n_kv_group']
         qk, vd, mlp = layer['n_qk_head_dim'], layer['n_v_head_dim'], layer['mlp_size']
         useful_macs += (n_embd * qk * (nh + nkv) + n_embd * vd * nkv + vd * nh * n_embd
-                        + 2 * n_embd * mlp + nh * (qk + vd) * ctx) * n_users
+                        + mlp_matrix_count(layer) * n_embd * mlp + nh * (qk + vd) * ctx) * n_users
     mac_util_pct = 100.0 * useful_macs / (chip.total_macs * max(1.0, sum(d['cycles'] for d in dec)))
 
     sources = [s for d in dec for s in d['per_op_sources'].values()]

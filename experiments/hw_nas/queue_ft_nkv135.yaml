@@ -1,0 +1,37 @@
+# Recovery training of searched SmolLM2-135M architectures from their elastic-KV supernet slices, run on the 4B
+# worker's GPU until the elastic-KV Qwen3-4B supernet arrives.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_ft_nkv135.yaml
+#
+# The architectures come from the final fronts of rdxe and tl-gemmini __smollm2-135m_nkv__nsga2__s0: the lowest held-out
+# slice loss within 50% of the full-width energy on each target (R50, G50), within 25% (R25, the uniform smallest on both
+# targets), and the full width (FULL). Each trains 2000 steps in place from runs/supernet/nkv_sl135/step2500 with the
+# ground-truth recipe of groundtruth_het.py: 65,536 tokens per step, lr 3e-3 with cosine decay, distillation from the
+# published checkpoint. The score job reads every model, the published checkpoint and the untrained slices on the same
+# held-out windows.
+
+# DRAINED 2026-09-19. These five jobs were already completed on the second H100 worker on 2026-09-15,
+# finishing 22:48, and its results were fetched into runs/groundtruth/smollm2-135m_nkv_ft. The two machines
+# do not share storage, so the work was invisible from here until the remote was inspected. Re-running it
+# locally recomputed training that already existed, so the queue is emptied rather than killed: queue.py
+# re-reads this file after each job and stops when it finds nothing left. The original job list is kept
+# below as a comment so the recipe stays on the record.
+
+jobs: []
+
+# jobs:
+#   - name: ft__smollm2-135m_nkv__FULL
+#     command: [python, experiments/supernet_fidelity/groundtruth_het.py, --model, smollm2-135m, --set, runs/groundtruth/smollm2-135m_nkv_ft/ARCHS.json, --arch, FULL, --steps, '2000', --init, runs/supernet/nkv_sl135/step2500, --out, runs/groundtruth/smollm2-135m_nkv_ft]
+#     out: runs/groundtruth/smollm2-135m_nkv_ft/FULL
+#   - name: ft__smollm2-135m_nkv__R50
+#     command: [python, experiments/supernet_fidelity/groundtruth_het.py, --model, smollm2-135m, --set, runs/groundtruth/smollm2-135m_nkv_ft/ARCHS.json, --arch, R50, --steps, '2000', --init, runs/supernet/nkv_sl135/step2500, --out, runs/groundtruth/smollm2-135m_nkv_ft]
+#     out: runs/groundtruth/smollm2-135m_nkv_ft/R50
+#   - name: ft__smollm2-135m_nkv__G50
+#     command: [python, experiments/supernet_fidelity/groundtruth_het.py, --model, smollm2-135m, --set, runs/groundtruth/smollm2-135m_nkv_ft/ARCHS.json, --arch, G50, --steps, '2000', --init, runs/supernet/nkv_sl135/step2500, --out, runs/groundtruth/smollm2-135m_nkv_ft]
+#     out: runs/groundtruth/smollm2-135m_nkv_ft/G50
+#   - name: ft__smollm2-135m_nkv__R25
+#     command: [python, experiments/supernet_fidelity/groundtruth_het.py, --model, smollm2-135m, --set, runs/groundtruth/smollm2-135m_nkv_ft/ARCHS.json, --arch, R25, --steps, '2000', --init, runs/supernet/nkv_sl135/step2500, --out, runs/groundtruth/smollm2-135m_nkv_ft]
+#     out: runs/groundtruth/smollm2-135m_nkv_ft/R25
+#   - name: ft__smollm2-135m_nkv__score
+#     command: [python, experiments/supernet_fidelity/eval_het.py, --model, smollm2-135m, --dir, runs/groundtruth/smollm2-135m_nkv_ft, --texts, assets/heldout/heldout_ab.json, --base, --supernet, runs/supernet/nkv_sl135/step2500, --set, runs/groundtruth/smollm2-135m_nkv_ft/ARCHS.json, --out, runs/groundtruth/smollm2-135m_nkv_ft/nll_ctx1024.json]
+#     out: runs/jobs/ft__smollm2-135m_nkv__score

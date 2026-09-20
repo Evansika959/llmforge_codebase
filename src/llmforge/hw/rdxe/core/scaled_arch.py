@@ -131,6 +131,11 @@ class ScaledChipSpec:
 DXE_REFERENCE = ScaledChipSpec(name="DXE-ref")
 
 
+def mlp_matrix_count(layer_spec: dict) -> int:
+    """SwiGLU, the default as in llmforge.search.individual, has gate, up and down projections. A plain MLP has two."""
+    return 3 if layer_spec.get('mlp_variant', 'swiglu') == 'swiglu' else 2
+
+
 def layer_weight_bytes(layer_spec: dict, n_embd: int) -> int:
     """Compute weight bytes for one layer (INT8)."""
     nh = layer_spec['n_head']
@@ -139,15 +144,15 @@ def layer_weight_bytes(layer_spec: dict, n_embd: int) -> int:
     vd = layer_spec['n_v_head_dim']
     mlp = layer_spec['mlp_size']
     attn = layer_spec.get('attention_variant', 'infinite')
+    mlp_weights = mlp_matrix_count(layer_spec) * n_embd * mlp   # MLP_FC1, MLP_FC2 and a SwiGLU gate
 
     if attn == 'infinite':
         return (n_embd * qk * (nh + nkv) +   # QK_gen
                 n_embd * vd * nkv +            # V_gen
                 vd * nh * n_embd +              # ATTN_proj
-                n_embd * mlp +                  # MLP_FC1
-                mlp * n_embd)                   # MLP_FC2
+                mlp_weights)
     else:
-        return n_embd * mlp + mlp * n_embd
+        return mlp_weights
 
 
 def kv_bytes_per_token_per_layer(layer_spec: dict) -> int:

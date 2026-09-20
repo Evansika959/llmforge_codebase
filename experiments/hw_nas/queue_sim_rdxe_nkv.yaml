@@ -1,0 +1,32 @@
+# rDXE targets on the elastic-KV SmolLM2 supernets, run on the simulator worker next to queue_sim_nkv.yaml.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_sim_rdxe_nkv.yaml
+#
+# Workload, objectives and backend settings match queue_sim_rdxe.yaml. Run names carry the space name, as in
+# queue_sim_nkv.yaml.
+
+supernets:
+  nkv_sl135: runs/supernet/nkv_sl135/step2500
+  nkv_sl360: runs/supernet/nkv_sl360/step2500
+
+# Shared argument sets, merged into jobs with YAML merge keys. The queue runner ignores this key.
+templates:
+  rdxe: &rdxe {hw: rdxe, prefill_len: 128, decode_len: 32, hw_arg: [n_workers=8], objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+
+jobs:
+  # ---- S1: uniform grids, 384 architectures per base model ----
+  - name: rdxe__smollm2-135m_nkv__grid
+    args: {<<: *rdxe, space: smollm2-135m_nkv_uniform, supernet: nkv_sl135, algo: grid}
+  - name: rdxe__smollm2-360m_nkv__grid
+    args: {<<: *rdxe, space: smollm2-360m_nkv_uniform, supernet: nkv_sl360, algo: grid}
+
+  # ---- Gate: shared with queue_sim_nkv.yaml. ----
+  - name: gate__sim_rdxe_nkv_s2
+    command: [bash, -c, "for i in $(seq 1 17280); do [ -f scratch/pilots/SIM_NKV_S2_DECIDED ] && exit 0; sleep 10; done; exit 1"]
+
+  # ---- S2: NSGA-II with the three objectives, 832 evaluations per run ----
+  - name: rdxe__smollm2-135m_nkv__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135}
+  - name: rdxe__smollm2-360m_nkv__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: smollm2-360m_nkv, supernet: nkv_sl360}

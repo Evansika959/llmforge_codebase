@@ -1,0 +1,32 @@
+# Objective ablation on the rDXE ring at SmolLM2-135M. Everything is held fixed except what the search
+# optimizes, so any difference between the fronts is attributable to the objective and not to the space,
+# the supernet, the operators or the budget.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_sim_obj.yaml
+#
+#   rdxe-e   loss and energy per token
+#   rdxe-t   loss and time to first token
+#   rdxe-ec  loss and energy per token, subject to TTFT <= 2.0 ms
+#
+# The ceiling is 2.0 ms because the unconstrained energy optimum already sits at 2.47 ms, so any looser
+# bound is inert: at 2.5 ms and above the best feasible energy is unchanged at 25.9 uJ, while at 2.0 ms it
+# rises to 28.5 uJ. Only the tighter bound makes the constraint do work. The full-width anchor is infeasible
+# under it at 8.06 ms, which is the case constrained domination is meant to handle.
+
+supernets:
+  sl135_lr8e-3: runs/supernet/sl135_lr8e-3/step2500
+
+templates:
+  rdxe: &rdxe {hw: rdxe, prefill_len: 128, decode_len: 32, hw_arg: [n_workers=8]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+
+jobs:
+  - name: rdxe-e__smollm2-135m__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m, supernet: sl135_lr8e-3,
+           objectives: [val_loss, energy_per_token_uJ]}
+  - name: rdxe-t__smollm2-135m__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m, supernet: sl135_lr8e-3,
+           objectives: [val_loss, ttft_ms]}
+  - name: rdxe-ec__smollm2-135m__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m, supernet: sl135_lr8e-3,
+           objectives: [val_loss, energy_per_token_uJ], constraint: ["ttft_ms<=2.0"]}

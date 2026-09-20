@@ -53,9 +53,19 @@ def test_simulate_ring_uses_analytical_fallback(no_mapper):
     assert packing is not None
     ev = te.TimeloopEvaluator(arch="dxe_relaxed", n_mac_per_vac=16)
     r = wf.simulate_ring(info, packing, 256, ev, prefill_length=128, decode_length=32)
-    assert r["ops_timeloop"] == 0 and r["ops_fallback"] == 7 * 4  # seven GEMMs in each of four layers
+    # Eight GEMMs in each of four layers: seven for attention and the MLP, and the SwiGLU gate.
+    assert r["ops_timeloop"] == 0 and r["ops_fallback"] == 8 * 4
     for key in ("per_tok_uJ", "tpot_ms", "ttft_ms", "total_area_mm2"):
         assert math.isfinite(r[key]) and r[key] > 0
+
+
+def test_decode_shapes_and_weights_add_the_swiglu_gate():
+    layer = {"n_head": 9, "n_kv_group": 3, "n_qk_head_dim": 64, "n_v_head_dim": 64, "mlp_size": 1536}
+    plain = {**layer, "mlp_variant": "mlp"}
+    gated = te.enumerate_gemm_shapes_decode(layer, 576, 256)
+    assert len(gated) == 8 and gated[-1] == ("MLP_gate", 576, 1536, 1)
+    assert "MLP_gate" not in [s[0] for s in te.enumerate_gemm_shapes_decode(plain, 576, 256)]
+    assert wf.layer_weight_bytes(layer, 576) - wf.layer_weight_bytes(plain, 576) == 576 * 1536
 
 
 def test_run_rdxe_eval_selects_from_chip_grid(no_mapper, small_individual):

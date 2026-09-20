@@ -87,12 +87,19 @@ def test_evaluate_layer_fusion_counts_kv_groups_once(monkeypatch):
     monkeypatch.setattr(gemm, "run_GEMM_evaluation_detailed", fake)
     layer = {"n_head": 9, "n_kv_group": 3, "n_qk_head_dim": 48, "n_v_head_dim": 32,
              "mlp_size": 1152, "n_cproj": 1, "attention_variant": "infinite"}
-    fused = gemm.evaluate_layer(layer, 576, 128, None, fused=True, arch="dxe_relaxed", mode="decode")
+    plain = gemm.evaluate_layer(layer, 576, 128, None, fused=True, arch="dxe_relaxed", mode="decode",
+                                mlp_variant="mlp")
     # Outputs: ops 0, 1, 4 and 5 once and ops 2 and 3 three times, 1 uJ x 10. Inputs: ops 4, 5 and 6 once
     # and ops 2 and 3 three times, 2 uJ x 9. Each op's cycles likewise, 100 cycles per instance.
-    assert fused["fusion_saved_energy_uJ"] == pytest.approx(10.0 + 18.0)
-    assert fused["energy_uJ"] == pytest.approx(10.0 * (5 + 2 * 3) - 28.0)
-    assert fused["cycles"] == pytest.approx(1000.0 * (5 + 2 * 3) - (100 * 10 + 100 * 9))
+    assert plain["fusion_saved_energy_uJ"] == pytest.approx(10.0 + 18.0)
+    assert plain["energy_uJ"] == pytest.approx(10.0 * (5 + 2 * 3) - 28.0)
+    assert plain["cycles"] == pytest.approx(1000.0 * (5 + 2 * 3) - (100 * 10 + 100 * 9))
+    # The SwiGLU gate adds one Outputs and one Inputs instance. The Outputs of ATTN_proj and the Inputs of
+    # MLP_FC2 still count once, although each now touches a second edge.
+    gated = gemm.evaluate_layer(layer, 576, 128, None, fused=True, arch="dxe_relaxed", mode="decode")
+    assert gated["fusion_saved_energy_uJ"] == pytest.approx(11.0 + 20.0)
+    assert gated["energy_uJ"] == pytest.approx(10.0 * (6 + 2 * 3) - 31.0)
+    assert gated["cycles"] == pytest.approx(1000.0 * (6 + 2 * 3) - (100 * 11 + 100 * 10))
 
 
 def test_evaluate_layer_shapes_and_kv_scaling(monkeypatch):
@@ -108,14 +115,20 @@ def test_evaluate_layer_shapes_and_kv_scaling(monkeypatch):
              "mlp_size": 1152, "n_cproj": 1, "attention_variant": "infinite"}
     unfused = gemm.evaluate_layer(layer, 576, 128, None, fused=False, arch="dxe_relaxed", mode="decode")
     assert calls == [(576, 48 * 12, 1), (576, 32 * 3, 1), (48, 128, 3), (128, 32, 3),
-                     (32 * 9, 576, 1), (576, 1152, 1), (1152, 576, 1)]
-    # Five projection GEMMs once each, and the two attention GEMMs once per KV group.
-    assert unfused["energy_uJ"] == pytest.approx(summary["energy_uJ"] * (5 + 2 * 3))
-    assert unfused["cycles"] == pytest.approx(summary["cycles"] * (5 + 2 * 3))
+                     (32 * 9, 576, 1), (576, 1152, 1), (1152, 576, 1), (576, 1152, 1)]
+    # Six projection GEMMs once each, the SwiGLU gate among them, and the two attention GEMMs once per KV group.
+    assert unfused["energy_uJ"] == pytest.approx(summary["energy_uJ"] * (6 + 2 * 3))
+    assert unfused["cycles"] == pytest.approx(summary["cycles"] * (6 + 2 * 3))
+
+    calls.clear()
+    plain = gemm.evaluate_layer(layer, 576, 128, None, fused=False, arch="dxe_relaxed", mode="decode",
+                                mlp_variant="mlp")
+    assert len(calls) == 7
+    assert plain["energy_uJ"] == pytest.approx(summary["energy_uJ"] * (5 + 2 * 3))
 
     calls.clear()
     gemm.evaluate_layer(layer, 576, 128, None, fused=False, arch="dxe_relaxed", mode="prefill")
-    assert calls[0] == (576, 48 * 12, 128) and calls[2] == (48, 128, 3)
+    assert calls[0] == (576, 48 * 12, 128) and calls[2] == (48, 128, 3) and calls[7] == (576, 1152, 128)
 
     fused = gemm.evaluate_layer(layer, 576, 128, None, fused=True, arch="dxe_relaxed", mode="decode")
     assert 0 < fused["fusion_saved_energy_uJ"]
@@ -124,6 +137,10 @@ def test_evaluate_layer_shapes_and_kv_scaling(monkeypatch):
     calls.clear()
     mlp_only = dict(layer, attention_variant="identity")
     gemm.evaluate_layer(mlp_only, 576, 128, None, fused=False, arch="dxe_relaxed", mode="decode")
+    assert calls == [(576, 1152, 1), (1152, 576, 1), (576, 1152, 1)]
+    calls.clear()
+    gemm.evaluate_layer(mlp_only, 576, 128, None, fused=False, arch="dxe_relaxed", mode="decode",
+                        mlp_variant="mlp")
     assert calls == [(576, 1152, 1), (1152, 576, 1)]
 
 
@@ -131,11 +148,20 @@ def test_eval_individual_sums_active_layers(monkeypatch, small_individual):
     per_layer = {"energy_uJ": 2.0, "cycles": 10.0, "total_ops": 1.0, "total_memory_accesses": 1.0,
                  "utilization_pct": 50.0, "gflops": 1.0,
                  "fusion_saved_energy_uJ": 0.0, "fusion_saved_cycles": 0.0}
-    monkeypatch.setattr(gemm, "evaluate_layer", lambda *a, **k: dict(per_layer))
+    variants = []
+    monkeypatch.setattr(gemm, "evaluate_layer",
+                        lambda *a, **k: variants.append(k["mlp_variant"]) or dict(per_layer))
     small_individual["globals"]["layer_mask"] = [True, False, True, True]
     out = gemm.eval_individual(small_individual, None, arch="eyeriss")
     assert out["energy_uJ"] == pytest.approx(6.0)
     assert out["energy_per_token_uJ"] == pytest.approx(6.0 / 128)
+    # The MLP variant defaults to SwiGLU and follows the globals, and a layer's own variant wins.
+    assert variants == ["swiglu"] * 3
+    variants.clear()
+    small_individual["globals"]["mlp_variant"] = "mlp"
+    small_individual["layers"][3]["mlp_variant"] = "swiglu"
+    gemm.eval_individual(small_individual, None, arch="eyeriss")
+    assert variants == ["mlp", "mlp", "swiglu"]
 
 
 @pytest.mark.skipif(not gemm.timeloop_available(), reason="timeloopfe or timeloop-mapper not installed")

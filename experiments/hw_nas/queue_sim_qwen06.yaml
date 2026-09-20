@@ -1,0 +1,32 @@
+# Timeloop targets at Qwen3-0.6B on the width-only supernet qw06_cont, the scale the first simulator campaign left out.
+# Runs on the simulator worker next to queue_sim_rdxe_qwen06.yaml.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_sim_qwen06.yaml
+#
+# Workload and objectives match queue_sim.yaml: 128 prompt tokens and 32 generated tokens, with loss, energy per
+# generated token and TPOT. The uniform space has 128 architectures.
+
+supernets:
+  qw06_cont: runs/supernet/qw06_cont/final
+
+# Shared argument sets, merged into jobs with YAML merge keys. The queue runner ignores this key.
+templates:
+  tl: &tl {hw: timeloop, prefill_len: 128, decode_len: 32, objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+
+jobs:
+  # ---- S1: uniform grids, 128 architectures ----
+  - name: tl-gemmini__qwen3-0.6b__grid
+    args: {<<: *tl, hw_arg: [substrate=gemmini_16nm], space: qwen3-0.6b_uniform, supernet: qw06_cont, algo: grid}
+  - name: tl-eyeriss__qwen3-0.6b__grid
+    args: {<<: *tl, hw_arg: [substrate=eyeriss], space: qwen3-0.6b_uniform, supernet: qw06_cont, algo: grid}
+  - name: tl-flat__qwen3-0.6b__grid
+    args: {<<: *tl, hw_arg: [substrate=flat_edge], space: qwen3-0.6b_uniform, supernet: qw06_cont, algo: grid}
+
+  # ---- S2: NSGA-II with the three objectives, 832 evaluations per run ----
+  - name: tl-gemmini__qwen3-0.6b__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=gemmini_16nm], space: qwen3-0.6b, supernet: qw06_cont}
+  - name: tl-eyeriss__qwen3-0.6b__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=eyeriss], space: qwen3-0.6b, supernet: qw06_cont}
+  - name: tl-flat__qwen3-0.6b__nsga2__s0
+    args: {<<: [*tl, *nsga], hw_arg: [substrate=flat_edge], space: qwen3-0.6b, supernet: qw06_cont}

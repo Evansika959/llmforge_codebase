@@ -1,0 +1,21 @@
+# rDXE target at Qwen3-0.6B on the width-only supernet qw06_cont, run on the simulator worker next to
+# queue_sim_qwen06.yaml.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_sim_rdxe_qwen06.yaml
+#
+# Workload, objectives and backend settings match queue_sim_rdxe.yaml. A pilot on 2026-09-15 packed the full-width
+# architecture into a 6-chip ring of 761 mm2, inside the default 800 mm2 envelope, with every GEMM mapped by Timeloop.
+
+supernets:
+  qw06_cont: runs/supernet/qw06_cont/final
+
+# Shared argument sets, merged into jobs with YAML merge keys. The queue runner ignores this key.
+templates:
+  rdxe: &rdxe {hw: rdxe, prefill_len: 128, decode_len: 32, hw_arg: [n_workers=8], objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+
+jobs:
+  - name: rdxe__qwen3-0.6b__grid
+    args: {<<: *rdxe, space: qwen3-0.6b_uniform, supernet: qw06_cont, algo: grid}
+  - name: rdxe__qwen3-0.6b__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: qwen3-0.6b, supernet: qw06_cont}
