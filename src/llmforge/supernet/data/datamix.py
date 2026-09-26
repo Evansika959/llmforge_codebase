@@ -1,6 +1,7 @@
 """M1: ratio-mixed sampler over the packed buckets.
 
-Locked mix: code 0.30, rag 0.30, fineweb 0.25, math 0.15 (retrieval ~60 / preserve ~40).
+Every recipe passes its mix through --mix. The default is the Qwen3-0.6B recipe's web, code, math and
+retrieval mix at 40, 25, 20 and 15 percent. The SmolLM2 recipes use the same mix over the sl_ buckets.
 Each batch element independently picks a bucket by ratio, then a random packed sequence.
 Returns (tokens [B, SEQLEN] long, seglens_batch: list[list[int]]) -> feed to data.collate.
 """
@@ -10,7 +11,7 @@ import torch
 
 from ..paths import PACKED as _PACKED
 PACKED = str(_PACKED)
-DEFAULT_RATIOS = {"code": 0.30, "rag": 0.30, "fineweb": 0.25, "math": 0.15}
+DEFAULT_RATIOS = {"fineweb10bt": 0.40, "code": 0.25, "math": 0.20, "rag": 0.15}
 
 
 class DataMix:

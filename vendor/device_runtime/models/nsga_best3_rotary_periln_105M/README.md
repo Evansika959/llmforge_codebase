@@ -1,7 +1,7 @@
 # Example model: nsga_best3_rotary_periln_105M
 
-A ready-to-run **NSGA-searched LLMForge model** that uses **infinite-head attention**, exported to
-the `.rlm` format so you have a heterogeneous-architecture model to run immediately after cloning.
+An **NSGA-searched LLMForge model** that uses **infinite-head attention**, exported to
+the `.rlm` format.
 
 Unlike the uniform Tier-1 models (e.g. `../smollm2_135M`), this one has **per-layer heterogeneous
 dims**, `infinite` attention (concat path, non-square `c_proj`) in layers 0–5, an `identity` attention
@@ -18,8 +18,8 @@ dim 768, vocab 50257 (tiktoken-gpt2), block_size 1024, tied embeddings.
 
 ## Files
 - `tokenizer_gpt2.bin` — GPT-2 byte-level BPE tokenizer (~510 KB). **Committed in git.**
-- `nsga_best3_rotary_periln_105M.q8.rlm` — Q8_0 quantized weights (~106 MB). **Git LFS** (see
-  `.gitattributes`); run `git lfs pull` after cloning to fetch it.
+- `nsga_best3_rotary_periln_105M.q8.rlm` — Q8_0 quantized weights (~106 MB). **Not included.**
+  Regenerate it from a LLMForge checkpoint as shown under "Regenerate" below.
 
 ## Run (desktop)
 ```bash

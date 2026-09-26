@@ -79,7 +79,7 @@ def main():
         '', '## Interpretation limits','',
         'Starting temperature can encode operating conditions or measurement-session differences. Improved prediction does not prove temperature causes the performance change. It changes the prediction task from architecture-only to architecture conditional on known starting state. Random split results do not establish generalization across charging cycles, sessions, devices or temperatures outside the data.',
         'The old test set has already been inspected repeatedly, so these are exploratory results. Prospective measurements and repeated architectures under matched conditions are needed before a strong accuracy claim. Neither a flat learning curve nor temperature improvement measures irreducible measurement noise.',
-        '', '## Reproduce','', '```bash','conda activate nanollmforge',
+        '', '## Reproduce','', '```bash','conda activate llmforge',
         'python -m scripts.prediction diagnose-surrogate-error --output scripts/prediction/outputs/xgboost_error_diagnosis_repeat',
         'python -m scripts.prediction report-error-diagnosis scripts/prediction/outputs/xgboost_error_diagnosis_repeat','```']
     (out/'README.md').write_text('\n'.join(lines)+'\n')

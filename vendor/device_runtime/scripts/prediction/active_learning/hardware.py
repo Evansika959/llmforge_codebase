@@ -135,7 +135,7 @@ class AndroidBackend:
         if (not thermal and protocol.get('temperature_ceiling') != config['temperature_ceiling']) or protocol.get('min_battery_percent') != config['min_battery_percent']:
             raise ValueError('Thermal/battery settings differ from the declared dataset protocol')
         # Global adapter lock: legacy runner uses shared local/remote file names.
-        lock = Path(tempfile.gettempdir())/'nanollmforge_active_hardware.lock'
+        lock = Path(tempfile.gettempdir())/'llmforge_active_hardware.lock'
         with locked(lock):
             for snapshot_path in (rd/'attempts').glob('*/original_device_state.json'):
                 restoration = snapshot_path.with_name('restoration.json')
@@ -218,7 +218,7 @@ def restore_settings(snapshot_path, serial):
     command = [adb_path(),'-s',serial]
     def shell(script):
         return subprocess.run(command+['shell',script],capture_output=True,text=True,check=True,timeout=15).stdout.strip()
-    with locked(Path(tempfile.gettempdir())/'nanollmforge_active_hardware.lock'):
+    with locked(Path(tempfile.gettempdir())/'llmforge_active_hardware.lock'):
         if shell('getprop ro.serialno')!=identity['hardware_serial']:
             raise ValueError('Refusing to restore settings on a different device')
         if shell('pidof runq_llmforge power_sampler 2>/dev/null || true'):

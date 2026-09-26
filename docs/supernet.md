@@ -134,15 +134,32 @@ distillation.
 ### Data
 
 ```bash
+python -m llmforge.supernet.data.download_raw
 python -m llmforge.supernet.data.download
 python -m llmforge.supernet.data.pack_stream --parquet-dir <sample-10BT parquet dir> --out fineweb10bt
 scripts/supernet/pack_smollm.sh
+scripts/supernet/pack_qwen.sh
 ```
 
+`download_raw` writes the four raw buckets to `$LLMFORGE_DATA/raw` as jsonl:
+
+| bucket | source | filter and format | cap |
+|---|---|---|---|
+| `fineweb_edu` | `HuggingFaceFW/fineweb-edu`, sample-10BT | document text as is | 3 GB |
+| `code` | `bigcode/the-stack-smol` | source files of at least 2,000 characters | 3 GB |
+| `openmath` | `nvidia/OpenMathInstruct-2` | problem followed by its generated solution | 2 GB |
+| `rag_hotpot` | `hotpotqa/hotpot_qa`, distractor, train | titled context paragraphs, question, answer | 3 GB |
+
+Each source is streamed in its published order and cut at the cap, so a rerun reproduces the same
+documents while the upstream datasets are unchanged. HotpotQA ends before its cap.
+`bigcode/the-stack-smol` is gated, so accept its terms of use on the Hugging Face Hub and log in
+before the code bucket is fetched. `download` fetches the complete FineWeb-Edu sample-10BT parquet,
+which the Qwen3 recipes use as their web bucket.
+
 Packed buckets are token-id arrays under `$LLMFORGE_DATA/packed`. Token ids do not transfer between
-tokenizers, so SmolLM2 trains on its own `sl_` buckets. `pack_smollm.sh` packs four raw jsonl
-sources from `$LLMFORGE_DATA/raw`, named `fineweb_edu`, `code`, `openmath` and `rag_hotpot`. The
-package downloads FineWeb-Edu sample-10BT but not the code, math and retrieval sources.
+tokenizers, so SmolLM2 trains on its own `sl_` buckets, which `pack_smollm.sh` packs from all four
+raw buckets. `pack_qwen.sh` packs the `code`, `math` and `rag` buckets with the Qwen3 tokenizer, and
+`fineweb10bt` comes from the parquet.
 
 The SmolLM2 recipes and the Qwen3-0.6B recipe mix web, code, math and retrieval at 40, 25, 20 and 15
 percent. The retrieval bucket stands in for a long-document bucket that was never packed. The

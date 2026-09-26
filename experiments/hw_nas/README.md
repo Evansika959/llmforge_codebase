@@ -350,8 +350,8 @@ driver, from `queue_gpu4b.yaml`, with a device label that keeps its measurement 
 
 ### Pixel Watch 5, fitted predictor
 
-The predictor was fitted to on-device measurements of uniform architectures on the nanollmforge.c
-runtime, see `docs/hw_device.md`. It returns decode throughput, time to first token and dynamic
+The predictor was fitted to on-device measurements of uniform architectures on the device
+runtime in `vendor/device_runtime`, see `docs/hw_device.md`. It returns decode throughput, time to first token and dynamic
 energy per generated token for 49 prompt and 32 generated tokens. It accepts uniform architectures
 only, so watch searches run on the uniform space of SmolLM2-135M. That model is the only supernet
 inside the predictor's 50M to 150M training band. Its 30 layers exceed the 28-layer maximum of the

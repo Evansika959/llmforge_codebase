@@ -23,7 +23,7 @@ python -m scripts.prediction_research.layerwise_tpot.run \
   --output scripts/prediction/outputs/layerwise_tpot_reproduction
 ```
 
-Use the `nanollmforge` environment. The output directory must not already exist.
+Use the `llmforge` environment. The output directory must not already exist.
 The input data-only release and old model releases remain immutable.
 
 The [2026-09-22 model release](../../../diliverable/layerwise_tpot_2000_20260922/README.md)

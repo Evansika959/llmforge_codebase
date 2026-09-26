@@ -42,7 +42,7 @@ Existing frozen training snapshots/checkpoints are unchanged and need a later
 explicit refit to incorporate the retest. The large timing difference between the
 two attempts is not explained by this one retest and is not a repeatability estimate.
 
-From the repository root, in the `nanollmforge` environment:
+From the repository root, in the `llmforge` environment:
 
 ```bash
 python -m scripts.sweep.layerwise.reporting.plot_measurements \

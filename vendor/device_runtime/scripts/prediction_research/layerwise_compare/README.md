@@ -20,7 +20,7 @@ The two earlier 500-point campaigns are complete: **1,745 architectures total**.
 
 ## Reproduce
 
-From the repository root, use the existing `nanollmforge` environment:
+From the repository root, use the existing `llmforge` environment:
 
 ```bash
 python -m scripts.prediction_research.layerwise_compare.run \

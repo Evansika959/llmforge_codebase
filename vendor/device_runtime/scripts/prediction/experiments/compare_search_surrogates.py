@@ -178,7 +178,7 @@ def main():
         '- Means over three training seeds. Evaluation uses noisy single-run labels; identifying the recorded optimum is not proof of the true repeatable optimum.',
         '- Inputs exclude temperatures, voltages, power measurements, performance measurements, run order and config ID. Labels enter only training or evaluation.',
         '- Joblib checkpoints contain trusted local Python objects. They remain trained on the training partition, not all 936 examples.',
-        '', '## Reproduce','', '```bash','conda activate nanollmforge',
+        '', '## Reproduce','', '```bash','conda activate llmforge',
         'python -m scripts.prediction compare-search-surrogates --output scripts/prediction/outputs/architecture_search_models_repeat','```']
     (out/'README.md').write_text('\n'.join(lines)+'\n')
     print(json.dumps(summary,indent=2),flush=True)

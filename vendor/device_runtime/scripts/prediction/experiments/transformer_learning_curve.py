@@ -168,7 +168,7 @@ def main():
         '- No temperature, voltage, measured performance, config ID or run order appears among inputs. No batch-2 measurements were merged.',
         '- Learning curves stop at 598 fitting rows and cannot establish behavior at several thousand rows. Energy labels remain prefill-inclusive.',
         f"- Transformer fits reaching the 500-epoch cap: {sum(r['hit_cap'] for r in training if r['model']=='transformer')}/50. Inspect training.csv for best and stopping epochs.",
-        '', '## Reproduce','', '```bash','conda activate nanollmforge',
+        '', '## Reproduce','', '```bash','conda activate llmforge',
         'python -m scripts.prediction transformer-learning-curve --output scripts/prediction/outputs/transformer_learning_curve_repeat','```']
     (out/'README.md').write_text('\n'.join(lines)+'\n')
     print('COMPLETE',out,flush=True)

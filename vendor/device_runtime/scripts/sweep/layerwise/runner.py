@@ -133,7 +133,7 @@ def restore_value(d,key,value):
 
 def restore(folder,serial):
     folder=Path(folder).resolve(); d=Device(serial)
-    with locked(Path(tempfile.gettempdir())/'nanollmforge_active_hardware.lock'),locked(folder/'RUNNING.lock'):
+    with locked(Path(tempfile.gettempdir())/'llmforge_active_hardware.lock'),locked(folder/'RUNNING.lock'):
         if d.shell('pidof lw_measure runq_llmforge power_sampler 2>/dev/null || true'): raise Paused('Device measurement is still active')
         for path in sorted((folder/'sessions').glob('*/original.json')):
             result=path.with_name('restoration.json')
@@ -197,7 +197,7 @@ def run(folder,serial,max_jobs=500,acknowledge=False,*,validator=None,expected_m
     def interrupted(signum,frame): raise KeyboardInterrupt
     previous=signal.signal(signal.SIGTERM,interrupted); owns_workspace=False
     try:
-        with locked(Path(tempfile.gettempdir())/'nanollmforge_active_hardware.lock'),locked(folder/'RUNNING.lock'):
+        with locked(Path(tempfile.gettempdir())/'llmforge_active_hardware.lock'),locked(folder/'RUNNING.lock'):
             owns_workspace=True
             identity=preflight(serial)
             if d.shell('pidof lw_measure 2>/dev/null || true'): raise Paused('Another layerwise measurement is active')

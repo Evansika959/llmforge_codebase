@@ -5,7 +5,7 @@ set -euo pipefail
 #   ANDROID_SERIAL       ADB serial or IP:port; auto-detected when one device is connected
 #   ADB                  Path to adb
 #   NDK                  Path to an Android NDK installation
-#   CONDA_ENV_NAME       Conda environment name (default: nanollmforge)
+#   CONDA_ENV_NAME       Conda environment name (default: llmforge)
 #   SWEEP_CONFIG         Input CSV path
 #   SWEEP_OUTPUT         Result CSV path
 #   REGENERATE_CONFIG    Set to 1 to regenerate the default CSV with seed 123
@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
-CONDA_ENV_NAME="${CONDA_ENV_NAME:-nanollmforge}"
+CONDA_ENV_NAME="${CONDA_ENV_NAME:-llmforge}"
 SWEEP_CONFIG="${SWEEP_CONFIG:-$SCRIPT_DIR/configs/watch5_random_1000_50M_150M_sweep_batch2.csv}"
 SWEEP_OUTPUT="${SWEEP_OUTPUT:-$SCRIPT_DIR/outputs/watch5_random_50M_150M_40C_decode32_batch2_results.csv}"
 

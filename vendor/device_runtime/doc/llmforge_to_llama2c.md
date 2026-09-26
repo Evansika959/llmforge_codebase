@@ -13,10 +13,8 @@ and ultimately on Android (NDK cross-compile), starting with one clean "Tier-1" 
 
 ## Bundled example
 `models/smollm2_135M/` ships the example. The tokenizer (`tokenizer_gpt2.bin`, ~510 KB) is committed
-in git. The weights (`smollm2_135M.q8.bin`, ~138 MB) are **NOT in git** — GitHub blocks files
->100 MB and this public fork disallows Git LFS, so they are gitignored (`models/**/*.q8.bin`) and
-distributed via a **GitHub Release** asset instead. Get them with `llmforge_bridge/fetch_model.sh`
-(set `MODEL_URL` to the Release asset) or regenerate via `export_llmforge.py`. Then run:
+in git. The weights (`smollm2_135M.q8.bin`, ~138 MB) are **not included**. Regenerate them via
+`export_llmforge.py`, or fetch a hosted copy with `llmforge_bridge/fetch_model.sh <URL>`. Then run:
 `make rungelu && ./runq_gelu models/smollm2_135M/smollm2_135M.q8.bin -g models/smollm2_135M/tokenizer_gpt2.bin -i "Once upon a time" -t 0.8 -p 0.9 -n 128`.
 See `models/smollm2_135M/README.md`.
 
@@ -77,7 +75,7 @@ NON-ISSUES confirmed: no peri-LN, no qk-norm, no MoE, no learned abs-pos, offset
 
 ## Work breakdown
 
-### Component A — Exporter (Python): `export_llmforge.py` (new file in nanollm.c)
+### Component A — Exporter (Python): `export_llmforge.py` (new file in this runtime)
 Reads LLMForge `ckpt.pt`, writes llama2.c `.bin`. Does NOT depend on llama2.c's model.py /
 Transformer class (those expect Llama naming). We write the `.bin` bytes directly, mirroring
 `export.py`'s `version1_export` (fp32) and `version2_export` (Q8_0).

@@ -47,7 +47,7 @@ def main():
               '- No thermal, voltage, measured performance, config ID, or acquisition-order variables are model inputs.',
               '- Seed dispersion is not calibrated epistemic uncertainty for active learning.',
               '- Checkpoints are trained on the training partition only; validation controls early stopping. Do not mix these held-out evaluation results with a later all-data refit.',
-              '', '## Reproduce', '', '```bash', 'conda activate nanollmforge',
+              '', '## Reproduce', '', '```bash', 'conda activate llmforge',
               'python -m scripts.prediction compare-surrogates --output scripts/prediction/outputs/surrogate_comparison_repeat',
               'python -m scripts.prediction report-surrogates scripts/prediction/outputs/surrogate_comparison_repeat', '```', '',
               'Metadata stores input SHA256, exact split IDs, feature ordering, scalers, and library versions. Separate metrics, tuning scores, held-out predictions, selected hyperparameters, and checkpoints are included.']

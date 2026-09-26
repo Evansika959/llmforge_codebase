@@ -169,10 +169,10 @@ are lower bounds, not measured peak RSS or an on-watch memory guarantee.
 
 ## Commands
 
-Run from the repository root with the `nanollmforge` environment activated:
+Run from the repository root with the `llmforge` environment activated:
 
 ```bash
-conda activate nanollmforge
+conda activate llmforge
 python -m scripts.sweep.layerwise prepare \
   --output scripts/sweep/outputs/watch5_layerwise_500_v1
 python -m scripts.sweep.layerwise validate \
@@ -219,7 +219,7 @@ completed model without successful validation and its metadata sidecar.
 ## Start, monitor, pause and resume
 
 ```bash
-conda activate nanollmforge
+conda activate llmforge
 adb devices -l
 python -u -m scripts.sweep.layerwise run \
   --output scripts/sweep/outputs/watch5_layerwise_500_v1 \

@@ -51,7 +51,7 @@ def render(result, manifest):
               '- Changing from throughput to reciprocal TPOT is not itself evidence of improved prediction. Their MAPE denominators differ.',
               '- No new Transformer was trained in this release. Old throughput-based checkpoints and datasets are untouched.',
               '- Target order and units are stored in every checkpoint; do not feed this checkpoint to old throughput-only reports/AL consumers.', '',
-              '## Reproduce', '', 'From the repository root, in the nanollmforge environment:', '',
+              '## Reproduce', '', 'From the repository root, in the llmforge environment:', '',
               '```bash', 'python -m scripts.prediction_research.layerwise_tpot.run \\',
               '  --snapshot diliverable/layerwise_2000_gs64_refresh_20260922/dataset_snapshot.json \\',
               '  --output scripts/prediction/outputs/layerwise_tpot_reproduction', '```', '',

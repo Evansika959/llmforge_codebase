@@ -92,7 +92,7 @@ Both `/scripts/prediction/outputs/` and `/scripts/sweep/outputs/` are ignored by
 
 ## Commands
 
-Run from the repository root in the existing `nanollmforge` environment:
+Run from the repository root in the existing `llmforge` environment:
 
 ```bash
 python -m scripts.prediction --help

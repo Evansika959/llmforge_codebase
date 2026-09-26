@@ -47,7 +47,7 @@ def main():
     torch.set_num_threads(4)
     def stop(signum,frame): raise KeyboardInterrupt
     signal.signal(signal.SIGTERM,stop)
-    with locked(Path(tempfile.gettempdir())/'nanollmforge_active_hardware.lock'),locked(folder/'RUNNING.lock'):
+    with locked(Path(tempfile.gettempdir())/'llmforge_active_hardware.lock'),locked(folder/'RUNNING.lock'):
         validate_database(db)
         protocol=json.loads((folder/'hardware_contract.json').read_text())
         if runner.source_hashes()!=protocol['source_hashes']:

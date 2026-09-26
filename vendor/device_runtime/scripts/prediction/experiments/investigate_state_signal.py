@@ -139,7 +139,7 @@ def main():
         '- Better predictions conditional on temperature show association, not a causal thermal law. Temperature may capture session, placement, background-load or frequency behavior.',
         '- New-batch snapshot is small and may occupy a narrow state range. Continued use for model selection would turn it into a validation set.',
         '- No active model or watch scripts are changed. Models with temperature are not replacements for the architecture-only search baseline.',
-        '', '## Reproduce','', '```bash','conda activate nanollmforge',
+        '', '## Reproduce','', '```bash','conda activate llmforge',
         'python -m scripts.prediction investigate-state-signal --output scripts/prediction/outputs/state_signal_investigation_repeat','```']
     (out/'README.md').write_text('\n'.join(lines)+'\n')
     print('COMPLETE',out,flush=True)

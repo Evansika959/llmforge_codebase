@@ -9,7 +9,7 @@ orchestration in `run.py`, and evaluation/figures in `report.py`.
 
 ```bash
 python -m unittest scripts.prediction_research.compact_surrogates.test_compact -v
-MPLCONFIGDIR=/private/tmp/nanollmforge-matplotlib python -u -m scripts.prediction_research.compact_surrogates.run \
+MPLCONFIGDIR=/tmp/llmforge-matplotlib python -u -m scripts.prediction_research.compact_surrogates.run \
   --output scripts/prediction/outputs/compact_surrogates_1564
 ```
 

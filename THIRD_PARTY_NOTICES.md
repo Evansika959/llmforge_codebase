@@ -32,7 +32,10 @@ NeuroSim is licensed for non-commercial use only.
 |---|---|---|
 | SmolLM2-135M and SmolLM2-360M | supernet base checkpoints | Apache-2.0 |
 | Qwen3-0.6B-Base, Qwen3-1.7B-Base and Qwen3-4B-Base | supernet base checkpoints | Apache-2.0 |
-| FineWeb-Edu | supernet training data | ODC-By 1.0 |
+| FineWeb-Edu | supernet training data, web bucket | ODC-By 1.0 |
+| The Stack smol | supernet training data, code bucket | each file under its own permissive license, with The Stack terms of use |
+| OpenMathInstruct-2 | supernet training data, math bucket | CC BY 4.0 |
+| HotpotQA | supernet training data, retrieval bucket | CC BY-SA 4.0 |
 
 ## Python dependencies
 

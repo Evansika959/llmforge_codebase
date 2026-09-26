@@ -138,7 +138,7 @@ def main():
         'Only architecture/workload inputs are used. No measured performance, temperature, frequency, voltage, config ID or run order is a feature. Correlated feature gain is descriptive, not causal importance.',
         'The existing test set has already been inspected. This is exploratory ablation, not an untouched confirmatory experiment. Bootstrap intervals condition on this split, are not corrected for multiple comparisons, and do not establish cross-session generalization. Seed SD is not uncertainty calibration.',
         'Checkpoints are trained on 598 rows with validation early stopping; all 936 rows participate in the experiment but are not all training rows.',
-        '', '## Reproduce','', '```bash', 'conda activate nanollmforge',
+        '', '## Reproduce','', '```bash', 'conda activate llmforge',
         'python -m scripts.prediction compare-physics-priors --output scripts/prediction/outputs/xgboost_physics_priors_repeat','```']
     (out/'README.md').write_text('\n'.join(lines)+'\n')
     print('SELECTED',selected,flush=True)

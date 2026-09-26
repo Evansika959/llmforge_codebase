@@ -3,7 +3,7 @@
 The predictor was fitted on uniform architectures, so this backend accepts only individuals whose
 active layers are identical. Any other individual gets hw_feasible = False.
 
-Workload: 49 prompt tokens then 32 generated tokens on the nanollmforge.c runtime, int8 weights with
+Workload: 49 prompt tokens then 32 generated tokens on the runtime in vendor/device_runtime, int8 weights with
 per-group scales whose group size follows from the architecture. See docs/hw_device.md for the
 measurement protocol, the training domain, and how the bundles were selected.
 

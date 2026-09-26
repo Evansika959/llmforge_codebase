@@ -131,7 +131,7 @@ its old protocol even though the production kernel is now different.
 The new directory has already been prepared. From the repository root:
 
 ```bash
-conda activate nanollmforge
+conda activate llmforge
 adb devices -l
 caffeinate -i python -u -m scripts.sweep.layerwise.gs64_resweep run \
   --serial 'YOUR_CURRENT_ADB_SERIAL' --acknowledge-protocol

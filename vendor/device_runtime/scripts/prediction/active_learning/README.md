@@ -108,10 +108,10 @@ Default total budget: 5 rounds × 20 new architectures = 100 new training archit
 
 ## Prepare without accessing the watch
 
-Run from the repository root in the `nanollmforge` environment:
+Run from the repository root in the `llmforge` environment:
 
 ```bash
-conda activate nanollmforge
+conda activate llmforge
 python -m scripts.prediction active init \
   --workspace scripts/prediction/outputs/active_learning_watch5_pilot \
   --energy dynamic --pool-size 5000 --batch-size 20 --members 5 \
