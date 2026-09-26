@@ -1,0 +1,8 @@
+{
+  "raw_artifacts_verified": 2000,
+  "timing_labels_and_reciprocal_verified": 2000,
+  "all_targets_positive_finite": true,
+  "grouped_splits_disjoint": true,
+  "checkpoint_reload_predictions_exact": true,
+  "source_dataset_unchanged": true
+}

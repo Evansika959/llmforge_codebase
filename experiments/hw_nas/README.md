@@ -350,29 +350,25 @@ driver, from `queue_gpu4b.yaml`, with a device label that keeps its measurement 
 
 ### Pixel Watch 5, fitted predictor
 
-The predictor was fitted to on-device measurements of uniform architectures on the device
-runtime in `vendor/device_runtime`, see `docs/hw_device.md`. It returns decode throughput, time to first token and dynamic
-energy per generated token for 49 prompt and 32 generated tokens. It accepts uniform architectures
-only, so watch searches run on the uniform space of SmolLM2-135M. That model is the only supernet
-inside the predictor's 50M to 150M training band. Its 30 layers exceed the 28-layer maximum of the
-training data and its vocabulary differs from the 50257 tokens of every training architecture, so
-its predictions extrapolate. `device_in_domain` flags that on every record.
+The searches in `queue_v2_watch.yaml`, `queue_v2_watch_nkv.yaml` and `queue_v2_watch360_nkv.yaml` use the
+per-layer predictor in `assets/device/layerwise_tpot_2000_20260922`, see `docs/hw_device.md`. It was fitted to
+2,000 on-device measurements of per-layer SmolLM2-135M and SmolLM2-360M architectures on the runtime in
+`vendor/device_runtime`, and returns time per output token, time to first token and dynamic energy per
+generated token for a 48-token prompt and 32 generated tokens. On 200 held-out architectures its mean
+absolute percentage error is 14.0% on energy per token, 16.5% on TTFT and 15.5% on TPOT, with Spearman
+correlations of 0.94, 0.92 and 0.84. The search hands it each candidate with its layer shapes intact, and
+the training rows of each base model span every per-layer value of its search grid.
 
-An audit of the predictor on the 135M grid explains its irregular costs and bounds what they show. The
-predicted energy per token is not monotone in the knobs that set attention width. One step up in head
-count lowers it in 38% of cases, by up to 2.7x, and one step up in value head dimension lowers it in
-33%, by up to 2.8x. The jumps follow the INT8 group size the runtime derives from the architecture, 64
-when the model, attention and MLP widths are all multiples of 64 and 32 or 16 otherwise. The measured
-data show the same effect directly. Within each model width, architectures with group size 64 decode
-at 0.35 to 0.41 times the throughput of those with group size 32 and use 2.3 to 3.2 times the dynamic
-energy per token, after controlling for parameter count and depth. The irregularity is therefore a
-property of the watch runtime that no size-based proxy sees. On the grid, a log-linear model on
-parameter count and group size, with 5-fold cross-validated predictions, ranks the predicted energy
-with a Spearman correlation of 0.997, against 0.689 for parameter count alone. Two limits remain. The measured data
-contain query head counts of 1, 2, 4, 6, 8, 12 and 16 only, so the 3 and 9 heads of two thirds of the
-grid never appear in them, and `device_on_support` flags such architectures. The shipped predictor's
-validation error for energy is 43.6% mean absolute percentage error. Watch results therefore support
-the direction and rough size of cost differences, not exact costs.
+The earlier runs of `queue.yaml` used a predictor fitted to uniform architectures only, the `best` bundle
+in `assets/device/pixel_watch5`. It accepted uniform candidates only and extrapolated at SmolLM2-135M,
+whose 30 layers exceed the 28-layer maximum of its training data. An audit of that predictor on the 135M
+grid found the predicted energy per token not monotone in the knobs that set attention width, following the
+INT8 group size the runtime derives from the architecture, 64 when the model, attention and MLP widths are
+all multiples of 64 and 32 or 16 otherwise. Within each model width, measured architectures with group
+size 64 decode at 0.35 to 0.41 times the throughput of those with group size 32 and use 2.3 to 3.2 times
+the dynamic energy per token, after controlling for parameter count and depth. The irregularity is
+therefore a property of the watch runtime that no size-based proxy sees. Group size 64 rows of the
+per-layer predictor's data were remeasured with an optimized kernel, as its bundle README records.
 
 ### Calibrated cost models
 

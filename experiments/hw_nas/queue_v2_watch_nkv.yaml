@@ -9,8 +9,7 @@
 # 832 evaluations. The old watch runs used pop 16 over 10 generations because their uniform space held
 # only 192 architectures; this space holds about 10^12.9.
 #
-#   LLMFORGE_DEVICE_BUNDLES=<delivery dir> PYTHONPATH=src .venv/bin/python \
-#     experiments/hw_nas/queue.py experiments/hw_nas/queue_v2_watch_nkv.yaml
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_v2_watch_nkv.yaml
 defaults:
   n_docs: 32
   val_docs: 64

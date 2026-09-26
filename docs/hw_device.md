@@ -1,8 +1,36 @@
 # On-device target: Pixel Watch 5
 
-The on-device target predicts how fast and how energy-efficiently a uniform decoder-only language model runs on a Google Pixel Watch 5. A tree ensemble fitted to measurements taken on the watch maps an architecture to three metrics, and the search uses it as a hardware evaluator. The measurement harness and the active-learning loop that collected the labels ship with the predictor, so the fit can be reproduced or extended on a device.
+The on-device target, Backend D in the paper, predicts how fast and how energy-efficiently a decoder-only language model runs on a Google Pixel Watch 5. A tree ensemble fitted to measurements taken on the watch maps an architecture, layer by layer, to three costs, and the search uses it as a hardware evaluator. The measurement harness and the active-learning loop that collected the labels ship with the predictor, so the fit can be reproduced or extended on a device.
 
-Code lives in `src/llmforge/hw/device/`, the fitted model and its data in `assets/device/pixel_watch5/`, and tests in `tests/device/`.
+Code lives in `src/llmforge/hw/device/` and tests in `tests/device/`. The per-layer predictor that Backend D uses, with its data, lives in `assets/device/layerwise_tpot_2000_20260922/`. An earlier predictor fitted on uniform architectures only, with the measurement provenance of the harness, lives in `assets/device/pixel_watch5/`.
+
+## Per-layer predictor
+
+`python -m llmforge.search.cosearch --hw device` loads `assets/device/layerwise_tpot_2000_20260922/models/predictor_final.joblib` unless `--device-bundle` names another bundle. `HwDevice` hands it each candidate with its layer shapes intact, so heterogeneous architectures are evaluated as they are.
+
+| Setting | Value |
+|---|---|
+| Data | 2,000 per-layer architectures of SmolLM2-135M and SmolLM2-360M, 1,808 heterogeneous and 192 uniform |
+| Split | fixed and grouped, 1,600 train, 200 validation, 200 test |
+| Workload | a 48-token prompt, 32 output tokens, batch of one, 4 threads, INT8 runtime |
+| Targets | `tpot_ms`, `ttft_ms` and `dynamic_energy_per_token_mj`, each lower-is-better |
+| Features | 110 architecture-only features, with no temperature, battery, voltage or measured timing |
+| Model | one XGBoost regressor per target in log space, depth 3, up to 1,500 trees, learning rate 0.03, early stopping after 50 rounds |
+| Checkpoint | seed 2026 of seeds 42, 123 and 2026, selected by mean validation MAPE before the test set was evaluated |
+
+Test results, as the mean over the three seeds:
+
+| Target | MAPE | Spearman | Kendall τ-b | Pairwise accuracy |
+|---|---:|---:|---:|---:|
+| TPOT | 15.50% | 0.843 | 0.667 | 83.3% |
+| TTFT | 16.52% | 0.923 | 0.778 | 88.9% |
+| Energy per token | 13.97% | 0.938 | 0.792 | 89.6% |
+
+The selected checkpoint reaches 15.46%, 16.49% and 13.97% test MAPE. The bundle ships the exact feature code it was fitted with under `source_snapshot/`, which `src/llmforge/hw/device/prediction/inference/layerwise.py` imports, and `tests/device/test_layerwise_bundle.py` checks that it reproduces the recorded test predictions. The bundle's `README.md` lists every file, the limitations and the command that refits it.
+
+`device_in_domain` checks each layer against the ranges of the training rows that share the candidate's depth and model width. The training rows of each base model span every per-layer value of its search grid, for both SmolLM2-135M and SmolLM2-360M. The flag can still be false when a candidate's total parameter count falls outside the range of its base model's rows.
+
+The release copy withholds the device serial number and removes machine-specific path prefixes. `manifest.json` records what changed and the digests of the files as delivered, and every model predicts exactly what the delivered model predicts.
 
 ## What is measured
 
@@ -27,9 +55,9 @@ Baseline power is the median over the idle window before inference, after one se
 
 The recorded protocol keeps the historical admission ceiling of 40 °C. Later rounds used a strict ceiling below 45 °C, and each of those observations records its thermal policy in its measurement context.
 
-## Predictor
+## Earlier uniform predictor
 
-Inputs are the physics32 features, computed from the architecture alone in `src/llmforge/hw/device/prediction/features/physics.py`:
+The sections from here to "Using the uniform predictor" describe the predictor in `assets/device/pixel_watch5`, which `--device-bundle best` or `latest` selects. Backend D no longer uses it. Inputs are the physics32 features, computed from the architecture alone in `src/llmforge/hw/device/prediction/features/physics.py`:
 
 - the shape fields `n_layer`, `d_model`, `n_h`, `n_kv`, `d_qk`, `d_v`, `d_mlp`, the vocabulary size and the INT8 group size
 - parameter count, model and per-layer weight bytes, and KV-cache bytes per token
@@ -94,7 +122,7 @@ The INT8 group size enters the features but follows from the architecture: 64 wh
 
 The features describe one layer shape repeated `n_layer` times. The predictor has no input for differences between layers, so it applies only to architectures whose layers share `n_h`, `n_kv`, `d_qk`, `d_v` and `d_mlp`. Callers must reject a heterogeneous architecture rather than average it into a uniform one.
 
-## Using the predictor
+## Using the uniform predictor
 
 ```python
 from llmforge.hw.device.prediction.inference.predictor import bundle_targets, predict_bundle

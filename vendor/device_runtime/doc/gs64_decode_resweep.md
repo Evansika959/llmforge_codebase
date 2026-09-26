@@ -30,8 +30,7 @@ Artifacts: `scripts/sweep/outputs/gs64_decode_validation_20260921/`.
 
 - `runq_llmforge_baseline.c`: exact pre-optimization source.
 - `compile_commands.json`: host and ARMv7 old/new compiler invocations.
-- `device_correctness.json`: numerical checks on physical watch
-  `67301WRDQW80V6`, ABI `armeabi-v7a`.
+- `device_correctness.json`: numerical checks on the physical watch, ABI `armeabi-v7a`.
 - `device_microbenchmark.json`: raw interleaved benchmark observations.
 - `validation_summary.json`: source hashes, test summary and device evidence.
 - `host_*` and `armv7_*` logits/tokens: complete saved tiny-fixture predictions.

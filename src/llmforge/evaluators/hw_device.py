@@ -1,14 +1,17 @@
 """Hardware evaluator: Pixel Watch 5, from a predictor fitted to on-device measurements.
 
-The predictor was fitted on uniform architectures, so this backend accepts only individuals whose
-active layers are identical. Any other individual gets hw_feasible = False.
+The default bundle, assets/device/layerwise_tpot_2000_20260922, is the per-layer predictor behind
+Backend D. It was fitted on 2,000 measured per-layer architectures of SmolLM2-135M and SmolLM2-360M
+and takes each individual with its layer shapes intact. The bundles named "best" and "latest" are
+an earlier predictor fitted on uniform architectures only, so they accept only individuals whose
+active layers are identical and give any other individual hw_feasible = False.
 
-Workload: 49 prompt tokens then 32 generated tokens on the runtime in vendor/device_runtime, int8 weights with
-per-group scales whose group size follows from the architecture. See docs/hw_device.md for the
-measurement protocol, the training domain, and how the bundles were selected.
+Workload: a 48-token prompt then 32 generated tokens on the runtime in vendor/device_runtime, int8
+weights with per-group scales whose group size follows from the architecture. See docs/hw_device.md
+for the measurement protocol, the training domain, and how the bundles were selected.
 
 Emitted keys
-    device_decode_tok_s          decode throughput, tokens per second
+    device_decode_tok_s          decode throughput, tokens per second, 1000 / tpot_ms for the default bundle
     device_ttft_ms               time to first token, milliseconds
     device_energy_per_token_mJ   dynamic energy per generated token, millijoules, measured above the
                                  idle baseline over the whole inference including prefill
@@ -16,7 +19,8 @@ Emitted keys
                                  range of the predictor's training data
     device_on_support            device_in_domain, and every value of n_h, n_kv, d_qk, d_v and d_model
                                  also occurs in the training data. The sweep drew these from short lists,
-                                 so a value inside the range can still be one no observation has
+                                 so a value inside the range can still be one no observation has. The
+                                 per-layer bundle checks its domain per skeleton and reports None here
     energy_per_token_uJ          1000 x device_energy_per_token_mJ
     ttft_ms, tpot_ms             tpot_ms = 1000 / device_decode_tok_s
     hw_feasible
@@ -27,6 +31,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+DEFAULT_BUNDLE = "layerwise_tpot_2000_20260922/models/predictor_final"
 BUNDLES = {"best": ("predictor_best.joblib", "dataset_best_model.json"),
            "latest": ("predictor_latest.joblib", "dataset_latest.json")}
 FIELDS = ("n_layer", "d_model", "n_h", "n_kv", "d_qk", "d_v", "d_mlp")
@@ -35,7 +40,7 @@ LAYER_KEYS = ("n_head", "n_kv_group", "n_qk_head_dim", "n_v_head_dim", "mlp_size
 
 
 class HwDevice:
-    def __init__(self, bundle: str = "best", asset_dir: Optional[str] = None):
+    def __init__(self, bundle: str = DEFAULT_BUNDLE, asset_dir: Optional[str] = None):
         from ..hw.device.prediction.models.serialization import load_bundle
         from ..hw.device.prediction.inference import layerwise
         from ..paths import DEVICE_ASSETS, DEVICE_BUNDLES

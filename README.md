@@ -51,7 +51,7 @@ python -m llmforge.search.cosearch \
 |---|---|---|
 | `analytic` | none | parameter, FLOP, KV-cache and MAC estimates |
 | `zeus` | local NVIDIA GPU | latency and energy measured through NVML |
-| `device` | Pixel Watch 5 | predictor fitted to on-device measurements, uniform architectures |
+| `device` | Pixel Watch 5 | per-layer predictor fitted to 2,000 on-device measurements |
 | `timeloop` | accelerator substrates | Timeloop mapping of a per-layer GEMM decomposition |
 | `rdxe` | ring-configured decoder accelerator | simulator with an inner chip-configuration search |
 

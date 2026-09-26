@@ -253,7 +253,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="untimed decode before the decode windows, so they start at decode power")
     g.add_argument("--zeus-decode-window-s", type=float, default=None,
                    help="minimum decode window length, default --zeus-min-window-s")
-    g.add_argument("--device-bundle", default="best", help="best, latest, or a bundle path")
+    from ..evaluators.hw_device import DEFAULT_BUNDLE
+
+    g.add_argument("--device-bundle", default=DEFAULT_BUNDLE,
+                   help="a bundle named under assets/device, or best or latest for the earlier uniform "
+                        "predictor. The default is the per-layer predictor of Backend D")
     g.add_argument("--hw-arg", action="append", default=[], metavar="KEY=VALUE",
                    help="extra keyword argument for the hardware evaluator, repeatable")
     g.add_argument("--analytic-seq-len", type=int, default=1024)

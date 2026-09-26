@@ -1,0 +1,210 @@
+{
+  "validation": [
+    [
+      14.748422766224598,
+      15.971061679875397,
+      10.508946167087837
+    ],
+    [
+      14.966238712929188,
+      15.535016099639085,
+      10.627690349675513
+    ],
+    [
+      14.81433826959819,
+      15.416871688308067,
+      10.530860088531258
+    ]
+  ],
+  "training": [
+    {
+      "seed": 42,
+      "counts": [
+        {
+          "train": 1600,
+          "validation": 200,
+          "best_iteration": 388
+        },
+        {
+          "train": 1600,
+          "validation": 200,
+          "best_iteration": 593
+        },
+        {
+          "train": 1600,
+          "validation": 200,
+          "best_iteration": 200
+        }
+      ],
+      "config": {
+        "objective": "reg:squarederror",
+        "base_score": null,
+        "booster": null,
+        "callbacks": null,
+        "colsample_bylevel": null,
+        "colsample_bynode": null,
+        "colsample_bytree": 0.9,
+        "device": null,
+        "early_stopping_rounds": 50,
+        "enable_categorical": false,
+        "eval_metric": null,
+        "feature_types": null,
+        "feature_weights": null,
+        "gamma": null,
+        "grow_policy": null,
+        "importance_type": null,
+        "interaction_constraints": null,
+        "learning_rate": 0.03,
+        "max_bin": null,
+        "max_cat_threshold": null,
+        "max_cat_to_onehot": null,
+        "max_delta_step": null,
+        "max_depth": 3,
+        "max_leaves": null,
+        "min_child_weight": 3,
+        "missing": "nan",
+        "monotone_constraints": null,
+        "multi_strategy": null,
+        "n_estimators": 1500,
+        "n_jobs": 2,
+        "num_parallel_tree": null,
+        "random_state": 42,
+        "reg_alpha": null,
+        "reg_lambda": 5,
+        "sampling_method": null,
+        "scale_pos_weight": null,
+        "subsample": 0.85,
+        "tree_method": "hist",
+        "validate_parameters": null,
+        "verbosity": null
+      },
+      "train_seconds": 1.1886609588982537
+    },
+    {
+      "seed": 123,
+      "counts": [
+        {
+          "train": 1600,
+          "validation": 200,
+          "best_iteration": 520
+        },
+        {
+          "train": 1600,
+          "validation": 200,
+          "best_iteration": 458
+        },
+        {
+          "train": 1600,
+          "validation": 200,
+          "best_iteration": 238
+        }
+      ],
+      "config": {
+        "objective": "reg:squarederror",
+        "base_score": null,
+        "booster": null,
+        "callbacks": null,
+        "colsample_bylevel": null,
+        "colsample_bynode": null,
+        "colsample_bytree": 0.9,
+        "device": null,
+        "early_stopping_rounds": 50,
+        "enable_categorical": false,
+        "eval_metric": null,
+        "feature_types": null,
+        "feature_weights": null,
+        "gamma": null,
+        "grow_policy": null,
+        "importance_type": null,
+        "interaction_constraints": null,
+        "learning_rate": 0.03,
+        "max_bin": null,
+        "max_cat_threshold": null,
+        "max_cat_to_onehot": null,
+        "max_delta_step": null,
+        "max_depth": 3,
+        "max_leaves": null,
+        "min_child_weight": 3,
+        "missing": "nan",
+        "monotone_constraints": null,
+        "multi_strategy": null,
+        "n_estimators": 1500,
+        "n_jobs": 2,
+        "num_parallel_tree": null,
+        "random_state": 123,
+        "reg_alpha": null,
+        "reg_lambda": 5,
+        "sampling_method": null,
+        "scale_pos_weight": null,
+        "subsample": 0.85,
+        "tree_method": "hist",
+        "validate_parameters": null,
+        "verbosity": null
+      },
+      "train_seconds": 0.9422108749859035
+    },
+    {
+      "seed": 2026,
+      "counts": [
+        {
+          "train": 1600,
+          "validation": 200,
+          "best_iteration": 318
+        },
+        {
+          "train": 1600,
+          "validation": 200,
+          "best_iteration": 323
+        },
+        {
+          "train": 1600,
+          "validation": 200,
+          "best_iteration": 231
+        }
+      ],
+      "config": {
+        "objective": "reg:squarederror",
+        "base_score": null,
+        "booster": null,
+        "callbacks": null,
+        "colsample_bylevel": null,
+        "colsample_bynode": null,
+        "colsample_bytree": 0.9,
+        "device": null,
+        "early_stopping_rounds": 50,
+        "enable_categorical": false,
+        "eval_metric": null,
+        "feature_types": null,
+        "feature_weights": null,
+        "gamma": null,
+        "grow_policy": null,
+        "importance_type": null,
+        "interaction_constraints": null,
+        "learning_rate": 0.03,
+        "max_bin": null,
+        "max_cat_threshold": null,
+        "max_cat_to_onehot": null,
+        "max_delta_step": null,
+        "max_depth": 3,
+        "max_leaves": null,
+        "min_child_weight": 3,
+        "missing": "nan",
+        "monotone_constraints": null,
+        "multi_strategy": null,
+        "n_estimators": 1500,
+        "n_jobs": 2,
+        "num_parallel_tree": null,
+        "random_state": 2026,
+        "reg_alpha": null,
+        "reg_lambda": 5,
+        "sampling_method": null,
+        "scale_pos_weight": null,
+        "subsample": 0.85,
+        "tree_method": "hist",
+        "validate_parameters": null,
+        "verbosity": null
+      },
+      "train_seconds": 0.6839062909130007
+    }
+  ]
+}

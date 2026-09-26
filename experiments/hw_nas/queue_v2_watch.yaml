@@ -5,12 +5,10 @@
 # space, so its refresh is an exact recomputation over the existing rows rather than a search, and
 # it already sits at runs_v2/search/watch__smollm2-135m__grid_tpot.
 #
-# The bundle is named relative to LLMFORGE_DEVICE_BUNDLES, which must point at the delivery
-# directory, so no machine path is recorded in any run.json:
+# The bundle ships under assets/device and is named relative to it, so no machine path is recorded
+# in any run.json:
 #
-#   LLMFORGE_DEVICE_BUNDLES=<delivery dir> \
-#     PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py \
-#     experiments/hw_nas/queue_v2_watch.yaml
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_v2_watch.yaml
 #
 # Search settings match the original runs exactly, so only the predictor differs: pop 16 over 10
 # generations, three seeds, loss against energy per token. val_loss for this supernet and space is

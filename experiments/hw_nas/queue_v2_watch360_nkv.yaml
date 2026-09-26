@@ -7,8 +7,7 @@
 # Same supernet as the other 360M five-knob runs, nkv_sl360_lr2.1e-4, so the whole comparison
 # sits on one supernet and one scale.
 #
-#   LLMFORGE_DEVICE_BUNDLES=<delivery dir> PYTHONPATH=src .venv/bin/python \
-#     experiments/hw_nas/queue.py experiments/hw_nas/queue_v2_watch360_nkv.yaml
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_v2_watch360_nkv.yaml
 defaults:
   n_docs: 32
   val_docs: 64
