@@ -30,7 +30,14 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from llmforge.paths import RUNS
+from llmforge.paths import ROOT, RUNS
+
+# The search trees of this project are split. `runs` holds the first round together with the evaluation
+# cache and the supernet checkpoints, and `runs_v2` holds the LR-corrected reruns that every number in the
+# paper comes from. RUNS points at the first of these because the cache and the checkpoints live there, so
+# an analysis that takes RUNS silently reads the wrong tree. SEARCH_RUNS is resolved separately, defaults to
+# runs_v2 when it exists, and is recorded in every summary this script writes.
+SEARCH_RUNS = ROOT / "runs_v2" if (ROOT / "runs_v2" / "search").is_dir() else RUNS
 from llmforge.search.pareto import non_dominated, normalized_hypervolume
 
 KNOBS = ("n_head", "n_qk_head_dim", "n_v_head_dim", "mlp_size")
@@ -154,7 +161,8 @@ def winners_by_cost(front: List[tuple], costs: List[str], grids: Dict[str, List[
 
 
 def analyze(model: str, target: str, out: Path) -> dict:
-    runs = {p.name: load_run(p) for p in sorted(RUNS.glob(f"search/{target}__{model}__*"))}
+    print(f"# reading {SEARCH_RUNS}/search")
+    runs = {p.name: load_run(p) for p in sorted(SEARCH_RUNS.glob(f"search/{target}__{model}__*"))}
     runs = {k: v for k, v in runs.items() if v and v["done"]}
     if not runs:
         raise SystemExit(f"no finished runs for {target}__{model}")
@@ -165,7 +173,8 @@ def analyze(model: str, target: str, out: Path) -> dict:
     grids = first["run"]["space"]["knobs"]
     costs = first["run"]["args"]["objectives"][1:]
 
-    summary = {"model": model, "target": target, "objectives": ["val_loss"] + costs, "hv_box": box,
+    summary = {"model": model, "target": target, "search_runs": str(SEARCH_RUNS),
+               "objectives": ["val_loss"] + costs, "hv_box": box,
                "consistent_box": len(boxes) == 1, "methods": {}, "comparisons": {}, "allocation": {}}
     if len(costs) > 1:
         summary["cost_rank_correlation"], summary["winners_by_cost"] = {}, {}
@@ -278,7 +287,8 @@ def transfer(model: str, a: str, b: str, out: Path, cost_a: Optional[str] = None
 
     The cost of each target defaults to its run's first cost objective.
     """
-    ra, rb = load_run(RUNS / "search" / f"{a}__{model}__grid"), load_run(RUNS / "search" / f"{b}__{model}__grid")
+    ra, rb = (load_run(SEARCH_RUNS / "search" / f"{a}__{model}__grid"),
+              load_run(SEARCH_RUNS / "search" / f"{b}__{model}__grid"))
     if not (ra and rb):
         raise SystemExit("both grid runs are needed")
     ca = cost_a or ra["run"]["args"]["objectives"][1]
@@ -314,6 +324,8 @@ def main():
     ap.add_argument("--transfer-costs", nargs=2, metavar=("COST_A", "COST_B"), default=(None, None),
                     help="cost metric of each target, default the first cost objective of its grid run")
     ap.add_argument("--out", default=str(RUNS / "analysis"))
+    ap.add_argument("--runs", default=None,
+                    help="search tree to read, overriding the runs_v2 default")
     a = ap.parse_args()
     if a.transfer:
         transfer(a.model, a.transfer[0], a.transfer[1], Path(a.out), *a.transfer_costs)

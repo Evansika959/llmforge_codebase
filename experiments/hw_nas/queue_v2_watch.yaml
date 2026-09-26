@@ -1,0 +1,40 @@
+# Pixel Watch 5 searches rerun on the 2026-09-22 layerwise TPOT predictor.
+#
+# Output goes to runs_v2/search, so the 2026-09-14 runs the current draft cites stay intact until
+# the text moves over. The uniform grid is not repeated here: it enumerates the whole 192-point
+# space, so its refresh is an exact recomputation over the existing rows rather than a search, and
+# it already sits at runs_v2/search/watch__smollm2-135m__grid_tpot.
+#
+# The bundle is named relative to LLMFORGE_DEVICE_BUNDLES, which must point at the delivery
+# directory, so no machine path is recorded in any run.json:
+#
+#   LLMFORGE_DEVICE_BUNDLES=<delivery dir> \
+#     PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py \
+#     experiments/hw_nas/queue_v2_watch.yaml
+#
+# Search settings match the original runs exactly, so only the predictor differs: pop 16 over 10
+# generations, three seeds, loss against energy per token. val_loss for this supernet and space is
+# fully cached, so these runs do no GPU scoring.
+defaults:
+  n_docs: 32
+  val_docs: 64
+  max_len: 1024
+  space: smollm2-135m_uniform
+  supernet: sl135_lr8e-3
+  hw: device
+  device_bundle: layerwise_tpot_2000_20260922/models/predictor_final
+  objectives: [val_loss, energy_per_token_uJ]
+  algo: nsga2
+  pop: 16
+  generations: 10
+
+supernets:
+  sl135_lr8e-3: runs/supernet/sl135_lr8e-3/step2500
+
+jobs:
+  - name: watch__smollm2-135m__nsga2__s0
+    args: {seed: 0, out: runs_v2/search/watch__smollm2-135m__nsga2__s0}
+  - name: watch__smollm2-135m__nsga2__s1
+    args: {seed: 1, out: runs_v2/search/watch__smollm2-135m__nsga2__s1}
+  - name: watch__smollm2-135m__nsga2__s2
+    args: {seed: 2, out: runs_v2/search/watch__smollm2-135m__nsga2__s2}

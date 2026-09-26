@@ -1,0 +1,52 @@
+# Per-layer against block-wise at a fixed evaluation budget, SmolLM2-135M, five-knob supernet.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_v2_perlayer.yaml
+#
+# The paper says the space supports per-layer selection and then searches blocks everywhere, with no
+# evidence that blocks is the better choice. This supplies it. Both arms get the same space, the same
+# supernet, the same operators and the same 832 evaluations, and differ only in the partition.
+#
+# The two arms are not the same size. Blocks is 25 genes and 10^12.92 architectures, per layer is 150 genes
+# and 10^77.53, so the per-layer arm samples 10^-74.6 of its own space. The expected outcome is that the
+# larger space does worse at this budget, which is the argument for blocks. It is written down here before
+# the runs so the result cannot be reinterpreted afterwards.
+#
+# Output goes to runs_v2 so the runs behind the current draft stay untouched.
+# Seed 0 of all four cells runs first, so an interruption still leaves one complete comparison.
+
+supernets:
+  nkv_sl135_new: runs/supernet/nkv_sl135_lr3.6e-4/step2500
+
+templates:
+  tl: &tl {hw: timeloop, prefill_len: 128, decode_len: 32, hw_arg: [substrate=gemmini_16nm],
+           objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  rdxe: &rdxe {hw: rdxe, prefill_len: 128, decode_len: 32, hw_arg: [n_workers=8],
+               objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+
+jobs:
+  - name: tl-gemmini__smollm2-135m_nkv__nsga2__s0
+    args: {<<: [*tl, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135_new,
+           out: runs_v2/search/tl-gemmini__smollm2-135m_nkv__nsga2__s0}
+  - name: tl-gemmini__smollm2-135m_nkv_pl__nsga2__s0
+    args: {<<: [*tl, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135_new, partition: per_layer,
+           out: runs_v2/search/tl-gemmini__smollm2-135m_nkv_pl__nsga2__s0}
+  - name: rdxe__smollm2-135m_nkv__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135_new,
+           out: runs_v2/search/rdxe__smollm2-135m_nkv__nsga2__s0}
+  - name: rdxe__smollm2-135m_nkv_pl__nsga2__s0
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135_new, partition: per_layer,
+           out: runs_v2/search/rdxe__smollm2-135m_nkv_pl__nsga2__s0}
+
+  - name: tl-gemmini__smollm2-135m_nkv__nsga2__s1
+    args: {<<: [*tl, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135_new, seed: 1,
+           out: runs_v2/search/tl-gemmini__smollm2-135m_nkv__nsga2__s1}
+  - name: tl-gemmini__smollm2-135m_nkv_pl__nsga2__s1
+    args: {<<: [*tl, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135_new, partition: per_layer, seed: 1,
+           out: runs_v2/search/tl-gemmini__smollm2-135m_nkv_pl__nsga2__s1}
+  - name: rdxe__smollm2-135m_nkv__nsga2__s1
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135_new, seed: 1,
+           out: runs_v2/search/rdxe__smollm2-135m_nkv__nsga2__s1}
+  - name: rdxe__smollm2-135m_nkv_pl__nsga2__s1
+    args: {<<: [*rdxe, *nsga], space: smollm2-135m_nkv, supernet: nkv_sl135_new, partition: per_layer, seed: 1,
+           out: runs_v2/search/rdxe__smollm2-135m_nkv_pl__nsga2__s1}

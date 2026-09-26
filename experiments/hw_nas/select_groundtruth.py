@@ -23,6 +23,10 @@ from pathlib import Path
 import numpy as np
 
 from llmforge.paths import ROOT, RUNS
+
+# See the note in analyze.py: RUNS points at the tree that also holds the evaluation cache and the supernet
+# checkpoints, while every search this paper reports lives in runs_v2. Resolve the search tree separately.
+SEARCH_RUNS = ROOT / "runs_v2" if (ROOT / "runs_v2" / "search").is_dir() else RUNS
 from llmforge.search.elastic_space import ElasticSearchSpace
 
 
@@ -53,7 +57,7 @@ def main():
     ap.add_argument("--out", default=None, help="default runs/groundtruth/<target>__<model>")
     a = ap.parse_args()
 
-    base = RUNS / "search"
+    base = SEARCH_RUNS / "search"
     tag = f"{a.target}__{a.model}"
     nsga = feasible(base / f"{tag}__nsga2__s{a.seed}")
     sources = {"searched": nsga, "uniform": feasible(base / f"{tag}__grid")}

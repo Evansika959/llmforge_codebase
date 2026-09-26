@@ -50,7 +50,7 @@ def preflight(serial, adb=None, min_battery=30):
         raise RuntimeError('Unplug the charger before benchmarking')
     if not 0<=level<=100 or level<=min_battery:
         raise RuntimeError(f'Battery {level:g}%; charge above {min_battery}% and unplug before resuming')
-    busy = shell('pidof runq_reallm power_sampler 2>/dev/null || true')
+    busy = shell('pidof runq_llmforge power_sampler 2>/dev/null || true')
     if busy:
         raise RuntimeError('A runner/sampler is already active on the device; inspect it before resuming')
     return dict(serial=serial,hardware_serial=shell('getprop ro.serialno'),model=shell('getprop ro.product.model'),
@@ -243,7 +243,7 @@ def restore_settings(snapshot_path, serial):
     with locked(Path(tempfile.gettempdir())/HARDWARE_LOCK):
         if shell('getprop ro.serialno')!=identity['hardware_serial']:
             raise ValueError('Refusing to restore settings on a different device')
-        if shell('pidof runq_reallm power_sampler 2>/dev/null || true'):
+        if shell('pidof runq_llmforge power_sampler 2>/dev/null || true'):
             raise RuntimeError('Device benchmark still active; wait/inspect before restoring')
         for location,value in snapshot['settings'].items():
             if location not in ('system:screen_off_timeout','global:stay_on_while_plugged_in'):

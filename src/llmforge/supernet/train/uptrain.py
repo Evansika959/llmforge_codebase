@@ -26,6 +26,7 @@ Two corrections over the M2/M4 trainer, both from the pre-code review:
   python -m llmforge.supernet.train.uptrain --model qwen3-4b --steps 12000 --batch 1 --accum 16 --chunked --grad-ckpt
 """
 import argparse
+import json
 import os
 import random
 import time
@@ -347,6 +348,10 @@ def main():
             d = os.path.join(ckpt_dir, f"step{step+1}")
             student.save_pretrained(d)
             torch.save(opt.state_dict(), os.path.join(d, "optim.pt"))
+            # Every argument, so a checkpoint can be traced to the run that made it. This file is
+            # also the marker that separates a post-fix elastic-KV checkpoint from a pre-fix one:
+            # the supernet project treats an n_kv checkpoint without run.json as unquotable.
+            json.dump(vars(a), open(os.path.join(d, "run.json"), "w"), indent=1, default=str)
 
     log_eval(a.steps)
     student.save_pretrained(os.path.join(ckpt_dir, "final"))

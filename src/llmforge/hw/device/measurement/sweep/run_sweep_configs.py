@@ -154,7 +154,7 @@ def ensure_compiled_and_pushed(adb_base):
 
     is_arm32 = "armv7" in arch or "armv8l" in arch or "32" in arch
     arch_flags = ["-march=armv7-a", "-mfpu=neon"] if is_arm32 else ["-march=armv8-a"]
-    print(f"Compiling runq_reallm for {arch} using {os.path.basename(compiler)} (OpenMP 4-core Batched GEMM)...")
+    print(f"Compiling runq_llmforge for {arch} using {os.path.basename(compiler)} (OpenMP 4-core Batched GEMM)...")
     cmd = [
         compiler,
         "-O3",
@@ -164,8 +164,8 @@ def ensure_compiled_and_pushed(adb_base):
         "-static-openmp",
         "-I" + runtime_path("src"),
         "-o",
-        work_path("runq_reallm_device"),
-        runtime_path("src", "runq_reallm.c"),
+        work_path("runq_llmforge_device"),
+        runtime_path("src", "runq_llmforge.c"),
         "-lm",
     ]
     subprocess.run(cmd, check=True)
@@ -181,11 +181,11 @@ def ensure_compiled_and_pushed(adb_base):
     if os.path.exists(work_path("power_sampler_device")):
         os.remove(work_path("power_sampler_device"))
 
-    print("Pushing runq_reallm engine and tokenizer to device...")
-    adb_push_with_retry(adb_base, work_path("runq_reallm_device"), "/data/local/tmp/runq_reallm")
-    subprocess.run(adb_base + ["shell", "chmod +x /data/local/tmp/runq_reallm"], capture_output=True, check=True)
-    if os.path.exists(work_path("runq_reallm_device")):
-        os.remove(work_path("runq_reallm_device"))
+    print("Pushing runq_llmforge engine and tokenizer to device...")
+    adb_push_with_retry(adb_base, work_path("runq_llmforge_device"), "/data/local/tmp/runq_llmforge")
+    subprocess.run(adb_base + ["shell", "chmod +x /data/local/tmp/runq_llmforge"], capture_output=True, check=True)
+    if os.path.exists(work_path("runq_llmforge_device")):
+        os.remove(work_path("runq_llmforge_device"))
 
     tok_path = find_tokenizer_gpt2()
     if tok_path:
@@ -240,7 +240,7 @@ def generate_mock_ckpt(n_head, n_kv, qk, vd, mlp_hidden, n_layer, n_embd):
     torch.save({"model": sd, "model_args": ma}, work_path(LOCAL_CKPT))
 
 def export_model():
-    export_script = runtime_path("reallmforge", "export_reallm_hetero.py")
+    export_script = runtime_path("llmforge_bridge", "export_llmforge_hetero.py")
     cmd = [sys.executable, export_script, work_path(LOCAL_CKPT), work_path(LOCAL_RLM), "--version", "2"]
     # The exporter runs from the runtime root, as it did inside the runtime repository.
     subprocess.run(cmd, cwd=RUNTIME_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
@@ -304,7 +304,7 @@ SAMPLER_PID=$!
 
 sleep {pre_idle_sec}
 
-./runq_reallm {LOCAL_RLM} -g tokenizer_gpt2.bin -i '{prompt_str}' -t 0.8 -p 0.9 -n {total_steps} > "$LOG" 2>&1 &
+./runq_llmforge {LOCAL_RLM} -g tokenizer_gpt2.bin -i '{prompt_str}' -t 0.8 -p 0.9 -n {total_steps} > "$LOG" 2>&1 &
 INFER_PID=$!
 # Poll during inference as well as between configurations.
 BATTERY_STOP="/data/local/tmp/sweep_battery_stop"

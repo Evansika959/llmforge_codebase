@@ -1,0 +1,127 @@
+{
+  "schema_version": 2,
+  "seed": 202609192,
+  "software_config_confirmed": true,
+  "source": "User authorized 1000 additional variable-KV architectures, in two sequential 500-point parts; retain existing skeleton, operator profile, and measurement protocol.",
+  "require_previous_campaign_exclusion": true,
+  "require_variable_kv_in_heterogeneous_candidates": true,
+  "families": {
+    "smollm2-135m": {
+      "n_layer": 30,
+      "d_model": 576,
+      "n_kv_by_n_h": {
+        "3": [
+          1,
+          3
+        ],
+        "6": [
+          1,
+          2,
+          3,
+          6
+        ],
+        "9": [
+          1,
+          3,
+          9
+        ]
+      },
+      "d_qk": [
+        16,
+        32,
+        48,
+        64
+      ],
+      "d_v": [
+        16,
+        32,
+        48,
+        64
+      ],
+      "n_h": [
+        3,
+        6,
+        9
+      ],
+      "d_mlp": [
+        384,
+        768,
+        1152,
+        1536
+      ]
+    },
+    "smollm2-360m": {
+      "n_layer": 32,
+      "d_model": 960,
+      "n_kv_by_n_h": {
+        "5": [
+          1,
+          5
+        ],
+        "10": [
+          1,
+          2,
+          5,
+          10
+        ],
+        "15": [
+          1,
+          3,
+          5,
+          15
+        ]
+      },
+      "d_qk": [
+        16,
+        32,
+        48,
+        64
+      ],
+      "d_v": [
+        16,
+        32,
+        48,
+        64
+      ],
+      "n_h": [
+        5,
+        10,
+        15
+      ],
+      "d_mlp": [
+        640,
+        1280,
+        1920,
+        2560
+      ]
+    }
+  },
+  "operator_profile": {
+    "attention": "infinite",
+    "use_concat_heads": true,
+    "mlp_variant": "swiglu",
+    "activation": "gelu_erf",
+    "norm": "rmsnorm_no_epsilon",
+    "pre_ln": true,
+    "peri_ln": true,
+    "post_ln": false,
+    "bias": false,
+    "rope_theta": 10000,
+    "vocab_size": 50257,
+    "seq_len": 256,
+    "tied_embeddings": true,
+    "quantization": "Q8_0_global_group_backoff_from_64"
+  },
+  "workload_plan": {
+    "actual_prompt_tokens": 49,
+    "output_tokens": 32,
+    "decode_forward_count": 31,
+    "cpu_threads": 4,
+    "admission_temperature_c": 45,
+    "admission_comparison": "lt",
+    "inference_temperature_polling": false,
+    "min_battery_percent": 30,
+    "require_unplugged": true
+  },
+  "pending_decisions": []
+}

@@ -6,13 +6,10 @@
 |---|---|---|---|
 | Timeloop architecture, mapper and problem specifications | `src/llmforge/hw/timeloop/specs` | adapted from the Timeloop project examples | MIT |
 | Held-out evaluation documents | `assets/heldout` | FineWeb-Edu, sample-10BT | ODC-By 1.0 |
+| A nanoGPT derivative | `vendor/gpt_model` | the model definitions the ZEUS GPU target instantiates | MIT |
+| A llama2.c derivative | `vendor/device_runtime` | the C inference runtime of the device measurement harness | MIT |
 
-## Fetched by `scripts/setup/fetch_third_party.sh`, not included
-
-| component | purpose | license |
-|---|---|---|
-| ReaLLM-Forge, a nanoGPT derivative | model definitions measured by the GPU target | MIT |
-| nanollmforge.c, a llama2.c derivative | on-device inference runtime for the device measurement harness | MIT |
+Both vendored trees keep their upstream `LICENSE` file. `vendor/README.md` records what was taken and what was changed.
 
 ## Built by `scripts/setup/install_timeloop.sh`, not included
 

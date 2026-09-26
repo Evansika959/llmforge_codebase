@@ -200,7 +200,7 @@ def main():
     lines += ['', '## Interpretation and checks', ''] + ['- '+s for s in manifest['limitations']]
     lines += ['- Bootstrap compares errors on different physical energy targets. Positive delta favors gross. Resampling assumes independent architectures and does not account for temporal correlation.',
               f"- Reproduced {len(check_deltas)} frozen baseline metrics; maximum MAPE discrepancy {max(check_deltas):.8f} percentage points. Gross and dynamic formulas reconcile within CSV rounding tolerance.",
-              '- Models are evaluation checkpoints, not automatically deployed. Original data, runq_reallm.c, and measurement scripts are unchanged.', '',
+              '- Models are evaluation checkpoints, not automatically deployed. Original data, runq_llmforge.c, and measurement scripts are unchanged.', '',
               '## Reproduce', '', '```bash',
               'python -m llmforge.hw.device.prediction evaluate-gross-energy --output runs/device/gross_energy_comparison_1564_rerun', '```']
     (out/'README.md').write_text('\n'.join(lines)+'\n')

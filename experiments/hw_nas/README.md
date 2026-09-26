@@ -296,7 +296,7 @@ minutes to measure its front, against 106 minutes for the measured search.
 
 ### GPU, measured with ZEUS
 
-Each architecture is built as a ReaLLM-Forge model with random weights and measured on one NVIDIA
+Each architecture is built as a vendored GPT model with random weights and measured on one NVIDIA
 H100 80GB in bf16. The measurement is described in `docs/hw_gpu.md`. The search objective is prefill
 energy per prompt token for a batch of 64 prompts of 512 tokens. Every window repeats the prefill
 until it lasts at least 2 s, and the median of three windows is reported with the time to first

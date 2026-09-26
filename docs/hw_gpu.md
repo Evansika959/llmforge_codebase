@@ -8,7 +8,7 @@ device energy from the NVML cumulative energy counter around each measurement wi
 
 | item | setting |
 |---|---|
-| model | ReaLLM-Forge GPT with Infinite Head Attention, built from the Individual with random weights |
+| model | GPT with Infinite Head Attention, vendored under vendor/gpt_model, built from the Individual with random weights |
 | precision | bf16 on GPU 0 |
 | per-layer shape | query heads, KV groups, query and key head dimension, value head dimension, SwiGLU MLP width |
 | fixed structure | RMSNorm, no biases, heads concatenated before the output projection, LM head tied to the embedding over the base vocabulary |

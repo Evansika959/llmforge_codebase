@@ -1,0 +1,153 @@
+# Other scales on the LR-corrected five-knob supernets, part c of 3.
+#
+#   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_v2_other_c.yaml
+#
+# nkv_sl360_lr2.1e-4 and nkv_qw06_lr2e-4 had never been searched against. Every job writes to
+# runs_v2/search so runs/search keeps the numbers the draft cites. The three parts are disjoint
+# and run as three parallel runners. Every rDXE job lives in part c, because each one drives eight
+# Timeloop workers and two of them at once would crowd the 26 cores.
+
+supernets:
+  nkv_sl360_new: runs/supernet/nkv_sl360_lr2.1e-4/step2500
+  nkv_qw06_new: runs/supernet/nkv_qw06_lr2e-4/step2500
+jobs:
+- name: rdxe__smollm2-360m_nkv__nsga2__s0
+  args:
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: &id001
+    - n_workers=8
+    objectives: &id002
+    - val_loss
+    - energy_per_token_uJ
+    - tpot_ms
+    algo: nsga2
+    pop: 32
+    generations: 25
+    space: smollm2-360m_nkv
+    supernet: nkv_sl360_new
+    out: runs_v2/search/rdxe__smollm2-360m_nkv__nsga2__s0
+- name: rdxe__smollm2-360m_nkv__nsga2__s1
+  args:
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    algo: nsga2
+    pop: 32
+    generations: 25
+    space: smollm2-360m_nkv
+    supernet: nkv_sl360_new
+    seed: 1
+    out: runs_v2/search/rdxe__smollm2-360m_nkv__nsga2__s1
+- name: rdxe__smollm2-360m_nkv__nsga2__s2
+  args:
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    algo: nsga2
+    pop: 32
+    generations: 25
+    space: smollm2-360m_nkv
+    supernet: nkv_sl360_new
+    seed: 2
+    out: runs_v2/search/rdxe__smollm2-360m_nkv__nsga2__s2
+- name: rdxe__smollm2-360m_nkv__grid
+  args:
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    space: smollm2-360m_nkv_uniform
+    supernet: nkv_sl360_new
+    algo: grid
+    out: runs_v2/search/rdxe__smollm2-360m_nkv__grid
+- name: rdxe__qwen3-0.6b_nkv__nsga2__s0
+  args:
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    algo: nsga2
+    pop: 32
+    generations: 25
+    space: qwen3-0.6b_nkv
+    supernet: nkv_qw06_new
+    out: runs_v2/search/rdxe__qwen3-0.6b_nkv__nsga2__s0
+- name: rdxe__qwen3-0.6b_nkv__nsga2__s1
+  args:
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    algo: nsga2
+    pop: 32
+    generations: 25
+    space: qwen3-0.6b_nkv
+    supernet: nkv_qw06_new
+    seed: 1
+    out: runs_v2/search/rdxe__qwen3-0.6b_nkv__nsga2__s1
+- name: rdxe__qwen3-0.6b_nkv__nsga2__s2
+  args:
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    algo: nsga2
+    pop: 32
+    generations: 25
+    space: qwen3-0.6b_nkv
+    supernet: nkv_qw06_new
+    seed: 2
+    out: runs_v2/search/rdxe__qwen3-0.6b_nkv__nsga2__s2
+- name: rdxe__qwen3-0.6b_nkv__grid
+  args:
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    space: qwen3-0.6b_nkv_uniform
+    supernet: nkv_qw06_new
+    algo: grid
+    out: runs_v2/search/rdxe__qwen3-0.6b_nkv__grid
+- name: tl-gemmini__smollm2-360m_nkv__nsga2__s0
+  args:
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: &id003
+    - val_loss
+    - energy_per_token_uJ
+    - tpot_ms
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw_arg:
+    - substrate=gemmini_16nm
+    space: smollm2-360m_nkv
+    supernet: nkv_sl360_new
+    out: runs_v2/search/tl-gemmini__smollm2-360m_nkv__nsga2__s0
+- name: tl-gemmini__smollm2-360m_nkv__nsga2__s1
+  args:
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: *id003
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw_arg:
+    - substrate=gemmini_16nm
+    space: smollm2-360m_nkv
+    supernet: nkv_sl360_new
+    seed: 1
+    out: runs_v2/search/tl-gemmini__smollm2-360m_nkv__nsga2__s1

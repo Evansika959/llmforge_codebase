@@ -1,0 +1,36 @@
+# Pixel Watch 5 on the five-knob elastic-KV space.
+#
+# The 2026-09-22 layerwise predictor is fitted on 1,808 heterogeneous architectures against only 192
+# uniform ones, so restricting it to uniform candidates used the small corner of its training data.
+# hw_device now hands a layerwise bundle the individual with its layer shapes intact, which is what
+# makes this search possible at all.
+#
+# Settings match the other five-knob searches, pop 32 over 25 generations, so the budget is the same
+# 832 evaluations. The old watch runs used pop 16 over 10 generations because their uniform space held
+# only 192 architectures; this space holds about 10^12.9.
+#
+#   LLMFORGE_DEVICE_BUNDLES=<delivery dir> PYTHONPATH=src .venv/bin/python \
+#     experiments/hw_nas/queue.py experiments/hw_nas/queue_v2_watch_nkv.yaml
+defaults:
+  n_docs: 32
+  val_docs: 64
+  max_len: 1024
+  space: smollm2-135m_nkv
+  supernet: nkv_sl135
+  hw: device
+  device_bundle: layerwise_tpot_2000_20260922/models/predictor_final
+  objectives: [val_loss, energy_per_token_uJ]
+  algo: nsga2
+  pop: 32
+  generations: 25
+
+supernets:
+  nkv_sl135: runs/supernet/nkv_sl135_lr3.6e-4/step2500
+
+jobs:
+  - name: watch__smollm2-135m_nkv__nsga2__s0
+    args: {seed: 0, out: runs_v2/search/watch__smollm2-135m_nkv__nsga2__s0}
+  - name: watch__smollm2-135m_nkv__nsga2__s1
+    args: {seed: 1, out: runs_v2/search/watch__smollm2-135m_nkv__nsga2__s1}
+  - name: watch__smollm2-135m_nkv__nsga2__s2
+    args: {seed: 2, out: runs_v2/search/watch__smollm2-135m_nkv__nsga2__s2}

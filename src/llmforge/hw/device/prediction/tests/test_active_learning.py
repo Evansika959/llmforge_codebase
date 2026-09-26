@@ -281,7 +281,7 @@ class ActiveLearningTests(unittest.TestCase):
         from ..active_learning import hardware
         fake_repo = Path(self.temp.name)/'repo'
         (fake_repo/'src').mkdir(parents=True)
-        (fake_repo/'src/runq_reallm.c').write_text('Synthetic kernel identity; never compiled')
+        (fake_repo/'src/runq_llmforge.c').write_text('Synthetic kernel identity; never compiled')
         rd = self.root/'rounds/0001'
         rd.mkdir(parents=True)
         c = self.pool[0]
@@ -290,7 +290,7 @@ class ActiveLearningTests(unittest.TestCase):
                         anchors=[dict(config_id=c['config_id'],before='anchor_PRE',after='anchor_POST')])
         if not anchors:
             proposal = dict(schedule=self.pool[1:3],anchors=[])
-        kernel = digest(fake_repo/'src/runq_reallm.c')
+        kernel = digest(fake_repo/'src/runq_llmforge.c')
         protocol = dict(self.dataset.protocol,adapter='legacy_random_sweep_v1',kernel_id=kernel,
                         temperature_ceiling=40.,min_battery_percent=30)
         settings = dict(kernel_id=kernel,temperature_ceiling=40.,min_battery_percent=30,max_measurement_attempts=3)
@@ -407,7 +407,7 @@ class ActiveLearningTests(unittest.TestCase):
         with patch.object(migration,'source_hashes',return_value=changed):
             with self.assertRaisesRegex(ValueError,'accept-source-changes'):
                 migration.disable_anchors(self.root,destination,'Remove controls')
-        changed['runtime/src/runq_reallm.c']='changed-kernel'
+        changed['runtime/src/runq_llmforge.c']='changed-kernel'
         with patch.object(migration,'source_hashes',return_value=changed):
             with self.assertRaisesRegex(ValueError,'Non-anchor'):
                 migration.disable_anchors(self.root,destination,'Remove controls',True)

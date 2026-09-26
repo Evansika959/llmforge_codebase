@@ -1,0 +1,133 @@
+supernets:
+  nkv_sl135_new: runs/supernet/nkv_sl135_lr3.6e-4/step2500
+jobs:
+- name: tl-gemmini__smollm2-135m_nkv__nsga2__s2
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: &id001
+    - val_loss
+    - energy_per_token_uJ
+    - tpot_ms
+    hw_arg:
+    - substrate=gemmini_16nm
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    seed: 2
+    out: runs_v2/search/tl-gemmini__smollm2-135m_nkv__nsga2__s2
+- name: tl-gemmini__smollm2-135m_nkv__random__s0
+  args:
+    algo: random
+    pop: 32
+    generations: 25
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: *id001
+    hw_arg:
+    - substrate=gemmini_16nm
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    out: runs_v2/search/tl-gemmini__smollm2-135m_nkv__random__s0
+- name: tl-gemmini__smollm2-135m_nkv__random__s1
+  args:
+    algo: random
+    pop: 32
+    generations: 25
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: *id001
+    hw_arg:
+    - substrate=gemmini_16nm
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    seed: 1
+    out: runs_v2/search/tl-gemmini__smollm2-135m_nkv__random__s1
+- name: tl-gemmini__smollm2-135m_nkv__random__s2
+  args:
+    algo: random
+    pop: 32
+    generations: 25
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: *id001
+    hw_arg:
+    - substrate=gemmini_16nm
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    seed: 2
+    out: runs_v2/search/tl-gemmini__smollm2-135m_nkv__random__s2
+- name: tl-gemmini__smollm2-135m_nkv_gqa__nsga2__s0
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: *id001
+    hw_arg:
+    - substrate=gemmini_16nm
+    space: smollm2-135m_nkv_gqa
+    supernet: nkv_sl135_new
+    out: runs_v2/search/tl-gemmini__smollm2-135m_nkv_gqa__nsga2__s0
+- name: tl-gemmini__smollm2-135m_nkv_gqa__nsga2__s1
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: *id001
+    hw_arg:
+    - substrate=gemmini_16nm
+    space: smollm2-135m_nkv_gqa
+    supernet: nkv_sl135_new
+    seed: 1
+    out: runs_v2/search/tl-gemmini__smollm2-135m_nkv_gqa__nsga2__s1
+- name: tl-gemmini__smollm2-135m_nkv_gqa__nsga2__s2
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: *id001
+    hw_arg:
+    - substrate=gemmini_16nm
+    space: smollm2-135m_nkv_gqa
+    supernet: nkv_sl135_new
+    seed: 2
+    out: runs_v2/search/tl-gemmini__smollm2-135m_nkv_gqa__nsga2__s2
+- name: tl-gemmini__smollm2-135m_nkv__grid
+  args:
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: *id001
+    hw_arg:
+    - substrate=gemmini_16nm
+    space: smollm2-135m_nkv_uniform
+    supernet: nkv_sl135_new
+    algo: grid
+    out: runs_v2/search/tl-gemmini__smollm2-135m_nkv__grid
+- name: tl-eyeriss__smollm2-135m_nkv__grid
+  args:
+    hw: timeloop
+    prefill_len: 128
+    decode_len: 32
+    objectives: *id001
+    hw_arg:
+    - substrate=eyeriss
+    space: smollm2-135m_nkv_uniform
+    supernet: nkv_sl135_new
+    algo: grid
+    out: runs_v2/search/tl-eyeriss__smollm2-135m_nkv__grid

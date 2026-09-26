@@ -1,6 +1,6 @@
 """GPU target: latency and energy of one architecture, measured with ZEUS.
 
-The architecture is instantiated as a ReaLLM-Forge GPT with Infinite Head Attention and random
+The architecture is instantiated as a GPT with Infinite Head Attention and random
 weights. Weights do not change which kernels a forward pass launches, so random weights measure the
 same compute as trained ones. Prefill is one forward pass over `prefill_len` tokens per sequence.
 Decode generates `decode_len` tokens against a preallocated KV cache (llmforge.hw.zeus.kv_cache),
@@ -38,7 +38,9 @@ Reported per architecture, median over n_repeats. With decode_len 0 only the pre
                                    prefill window when there is no decode
     hw_feasible                    False when the build or the measurement failed, for example OOM
 
-ReaLLM-Forge is located through llmforge.paths.REALLM_FORGE (env LLMFORGE_REALLM_FORGE).
+The GPT implementation is vendored under vendor/gpt_model and located through llmforge.paths.GPT_MODEL
+(env LLMFORGE_GPT_MODEL). It is an unmodified copy of a nanoGPT derivative, MIT licensed, kept byte for byte
+so that it can be diffed against its upstream.
 """
 from __future__ import annotations
 
@@ -57,28 +59,28 @@ from .kv_cache import (UnsupportedKVCache, attach_iha_kv_cache, capture_decode_g
                        set_kv_capacity)
 
 log = logging.getLogger(__name__)
-_REALLM = None
+_GPT_MODEL = None
 MAX_PASSES = 400
 
 
-def reallm_forge():
-    """Import GPTConfig and GPT from the ReaLLM-Forge checkout."""
-    global _REALLM
-    if _REALLM is None:
-        from ...paths import REALLM_FORGE
+def gpt_model():
+    """Import GPTConfig and GPT from the vendored GPT implementation."""
+    global _GPT_MODEL
+    if _GPT_MODEL is None:
+        from ...paths import GPT_MODEL
 
-        if not (REALLM_FORGE / "model.py").exists():
+        if not (GPT_MODEL / "model.py").exists():
             raise FileNotFoundError(
-                f"ReaLLM-Forge not found at {REALLM_FORGE}. Run scripts/setup/fetch_third_party.sh "
-                f"or point LLMFORGE_REALLM_FORGE at a checkout.")
-        root = str(REALLM_FORGE)
+                f"vendored GPT implementation not found at {GPT_MODEL}. "
+                f"Point LLMFORGE_GPT_MODEL at a copy.")
+        root = str(GPT_MODEL)
         if root not in sys.path:
             sys.path.insert(0, root)
         from gpt_conf import GPTConfig
         from model import GPT
 
-        _REALLM = (GPTConfig, GPT)
-    return _REALLM
+        _GPT_MODEL = (GPTConfig, GPT)
+    return _GPT_MODEL
 
 
 def _active_layers(ind: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -89,7 +91,7 @@ def _active_layers(ind: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def build_config(ind: Dict[str, Any], block_size: int):
-    GPTConfig, _ = reallm_forge()
+    GPTConfig, _ = gpt_model()
     g = ind.get("globals", ind)
     active = _active_layers(ind)
     if not active:
@@ -129,7 +131,7 @@ def build_config(ind: Dict[str, Any], block_size: int):
 def build_model_from_individual(ind: Dict[str, Any], block_size: int, device: torch.device,
                                 dtype: torch.dtype):
     """Instantiate the architecture with random weights directly on `device`."""
-    _, GPT = reallm_forge()
+    _, GPT = gpt_model()
     cfg = build_config(ind, block_size)
     with contextlib.redirect_stdout(io.StringIO()):
         try:

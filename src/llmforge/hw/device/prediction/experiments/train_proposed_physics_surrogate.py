@@ -133,7 +133,7 @@ def main():
         '- Cache residency/spill estimates are capacity proxies, not measured hit rates or DRAM traffic. Weight transfer and prefill compute formulas are roofline-inspired, not calibrated cycle-accurate simulation.',
         '- Existing nominal 48-token measurements imply 49 actual prompt tokens and 31 decode forward calls, normally 32 output tokens. This experiment uses 49 in physical work estimates and preserves existing TTFT labels; it does not claim exact-48-token accuracy.',
         '- Dynamic energy labels include prefill. They are not decode-only energy. The old baseline throughput is obtained by inverting its TPOT predictions, so its throughput MAPE differs from TPOT MAPE.',
-        '- No runq_reallm.c changes, no benchmark launches, no environmental inputs. All saved model predictions were reproduced after reload.',
+        '- No runq_llmforge.c changes, no benchmark launches, no environmental inputs. All saved model predictions were reproduced after reload.',
         '', '## Reproduce','', '```bash',
         'python -m llmforge.hw.device.prediction train-proposed-physics-surrogate --output runs/device/proposed_physics_surrogate_repeat','```']
     lines += ['', '## Audit and architecture-only inference', '',

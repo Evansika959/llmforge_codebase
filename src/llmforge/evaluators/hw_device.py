@@ -37,7 +37,8 @@ LAYER_KEYS = ("n_head", "n_kv_group", "n_qk_head_dim", "n_v_head_dim", "mlp_size
 class HwDevice:
     def __init__(self, bundle: str = "best", asset_dir: Optional[str] = None):
         from ..hw.device.prediction.models.serialization import load_bundle
-        from ..paths import DEVICE_ASSETS
+        from ..hw.device.prediction.inference import layerwise
+        from ..paths import DEVICE_ASSETS, DEVICE_BUNDLES
 
         self.asset_dir = Path(asset_dir) if asset_dir else DEVICE_ASSETS / "pixel_watch5"
         if bundle in BUNDLES:
@@ -45,10 +46,21 @@ class HwDevice:
             path = self.asset_dir / "models" / model_file
             self.dataset_path = self.asset_dir / "data" / data_file
         else:
-            path, self.dataset_path = Path(bundle), None
+            path, self.dataset_path = self._resolve(bundle, DEVICE_BUNDLES), None
         self.bundle = bundle
+        self.path = path
         self.pack = load_bundle(path)
-        self.domain = self._training_domain()
+        # Layerwise delivery bundles carry their own feature code and their own target order.
+        self.layerwise = layerwise.is_layerwise(self.pack)
+        self.domain = None if self.layerwise else self._training_domain()
+
+    @staticmethod
+    def _resolve(bundle: str, root: Path) -> Path:
+        """A bundle named relative to the bundle root, so a run records no machine path."""
+        for candidate in (root / f"{bundle}.joblib", root / bundle, Path(bundle)):
+            if candidate.exists():
+                return candidate
+        raise SystemExit(f"no device bundle named {bundle} under {root}")
 
     def _training_domain(self) -> Optional[Dict[str, List[float]]]:
         if self.dataset_path is None or not self.dataset_path.exists():
@@ -77,7 +89,12 @@ class HwDevice:
                 "n_kv": int(first[1]), "d_qk": int(first[2]), "d_v": int(first[3]),
                 "d_mlp": int(first[4]), "vocab_size": int(g.get("vocab_size", 50257))}
 
-    def in_domain(self, config: Dict[str, int]) -> Optional[bool]:
+    def in_domain(self, config: Dict[str, Any]) -> Optional[bool]:
+        if self.layerwise:
+            from ..hw.device.prediction.inference import layerwise
+
+            # A layerwise bundle is handed the individual, so the check reads its layers directly.
+            return layerwise.individual_in_domain(config, self.path)
         if self.domain is None:
             return None
         from ..hw.device.prediction.features.physics import architecture_stats
@@ -87,6 +104,8 @@ class HwDevice:
         return bool(ok and self.domain["total_params_M"][0] <= params_m <= self.domain["total_params_M"][1])
 
     def on_support(self, config: Dict[str, int]) -> Optional[bool]:
+        if self.layerwise:
+            return None
         inside = self.in_domain(config)
         if inside is None:
             return None
@@ -95,6 +114,12 @@ class HwDevice:
     def _predict(self, configs: List[Dict[str, int]]):
         from ..hw.device.prediction.inference.predictor import bundle_targets, predict_bundle
 
+        if self.layerwise:
+            from ..hw.device.prediction.inference import layerwise
+
+            # evaluate hands a layerwise bundle the individuals themselves, layer shapes intact.
+            return (list(self.pack["targets"]),
+                    list(layerwise.predict_individuals(self.pack, configs, self.path)))
         targets = bundle_targets(self.pack)
         try:
             return targets, list(predict_bundle(self.pack, configs))
@@ -111,7 +136,10 @@ class HwDevice:
         out: List[Optional[Dict[str, Any]]] = [None] * len(inds)
         configs, where = [], []
         for i, ind in enumerate(inds):
-            c = self.uniform_config(ind)
+            # A layerwise bundle is fitted on architectures whose layers differ, so it takes an
+            # individual as it stands. The older bundles were fitted on uniform architectures only
+            # and cannot speak about anything else, so they still reject a heterogeneous candidate.
+            c = ind if self.layerwise else self.uniform_config(ind)
             if c is None:
                 out[i] = {"hw_feasible": False, "device_error": "non-uniform architecture"}
             else:
@@ -124,10 +152,13 @@ class HwDevice:
                     out[i] = {"hw_feasible": False, "device_error": str(row)}
                     continue
                 p = dict(zip(targets, (float(x) for x in row)))
-                tok_s, ttft, e_mj = p["decode_tok_s"], p["ttft_ms"], p[targets[2]]
+                ttft, e_mj = p["ttft_ms"], p[targets[2]]
+                # Later bundles predict time per output token directly, earlier ones throughput.
+                tpot = p["tpot_ms"] if "tpot_ms" in p else 1e3 / p["decode_tok_s"]
+                tok_s = p["decode_tok_s"] if "decode_tok_s" in p else 1e3 / tpot
                 out[i] = {"device_decode_tok_s": tok_s, "device_ttft_ms": ttft,
                           "device_energy_per_token_mJ": e_mj, "device_in_domain": self.in_domain(c),
                           "device_on_support": self.on_support(c),
                           "energy_per_token_uJ": e_mj * 1e3, "ttft_ms": ttft,
-                          "tpot_ms": 1e3 / tok_s, "hw_feasible": True}
+                          "tpot_ms": tpot, "hw_feasible": True}
         return out

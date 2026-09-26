@@ -7,10 +7,13 @@ without code edits. Each root can be overridden with an environment variable.
     LLMFORGE_RUNS            run outputs, evaluation caches, checkpoints (default: <root>/runs)
     LLMFORGE_DATA            packed supernet training data (default: <root>/data)
     LLMFORGE_SCRATCH         temporary files (default: <root>/scratch)
-    LLMFORGE_REALLM_FORGE    ReaLLM-Forge checkout for the ZEUS GPU target
-                             (default: <root>/third_party/ReaLLM-Forge)
-    LLMFORGE_DEVICE_RUNTIME  nanollmforge.c checkout for on-device measurement
-                             (default: <root>/third_party/nanollmforge.c)
+    LLMFORGE_GPT_MODEL       GPT implementation the ZEUS GPU target instantiates
+                             (default: <root>/vendor/gpt_model)
+    LLMFORGE_DEVICE_RUNTIME  C inference runtime for on-device measurement
+                             (default: <root>/vendor/device_runtime)
+    LLMFORGE_DEVICE_BUNDLES  root holding on-device predictor bundles named on the command line,
+                             so a run records a short bundle name and never a machine path
+                             (default: <root>/assets/device)
     LLMFORGE_TIMELOOP_WORK   Timeloop working directory (default: <runs>/cache/timeloop)
 """
 import os
@@ -34,8 +37,9 @@ CACHE = RUNS / "cache"
 DATA = _env_path("LLMFORGE_DATA", ROOT / "data")
 SCRATCH = _env_path("LLMFORGE_SCRATCH", ROOT / "scratch")
 
-REALLM_FORGE = _env_path("LLMFORGE_REALLM_FORGE", ROOT / "third_party" / "ReaLLM-Forge")
-DEVICE_RUNTIME = _env_path("LLMFORGE_DEVICE_RUNTIME", ROOT / "third_party" / "nanollmforge.c")
+GPT_MODEL = _env_path("LLMFORGE_GPT_MODEL", ROOT / "vendor" / "gpt_model")
+DEVICE_RUNTIME = _env_path("LLMFORGE_DEVICE_RUNTIME", ROOT / "vendor" / "device_runtime")
+DEVICE_BUNDLES = _env_path("LLMFORGE_DEVICE_BUNDLES", DEVICE_ASSETS)
 
 TIMELOOP_SPECS = PACKAGE / "hw" / "timeloop" / "specs"
 TIMELOOP_WORK = _env_path("LLMFORGE_TIMELOOP_WORK", CACHE / "timeloop")
@@ -46,6 +50,6 @@ GPU_LOCK = SCRATCH / "locks" / "gpu.lock"
 
 def describe() -> str:
     rows = [("ROOT", ROOT), ("RUNS", RUNS), ("DATA", DATA), ("SCRATCH", SCRATCH),
-            ("REALLM_FORGE", REALLM_FORGE), ("DEVICE_RUNTIME", DEVICE_RUNTIME),
+            ("GPT_MODEL", GPT_MODEL), ("DEVICE_RUNTIME", DEVICE_RUNTIME),
             ("TIMELOOP_WORK", TIMELOOP_WORK)]
     return "\n".join(f"  {n:15} {p}{'' if p.exists() else '   [missing]'}" for n, p in rows)

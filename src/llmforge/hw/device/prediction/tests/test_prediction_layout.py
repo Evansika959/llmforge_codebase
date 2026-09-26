@@ -38,7 +38,7 @@ class PredictionLayoutTests(unittest.TestCase):
         cls.predictions = json.loads((cls.outputs/'gross_energy_comparison_1564/predictions.json').read_text())
 
     def test_runtime_and_shared_inputs(self):
-        if not (RUNTIME/'src/runq_reallm.c').is_file():
+        if not (RUNTIME/'src/runq_llmforge.c').is_file():
             self.skipTest('device runtime is not checked out')
         for name, path in self.snapshot['paths'].items():
             if not Path(path).is_file():

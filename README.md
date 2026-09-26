@@ -32,7 +32,7 @@ pip install -e ".[supernet,zeus,device,dev]"
 scripts/setup/fetch_third_party.sh
 ```
 
-The GPU target builds models from a pinned ReaLLM-Forge checkout. The simulator targets also need
+The GPU target builds models from the GPT implementation vendored under vendor/gpt_model. The simulator targets also need
 Timeloop, see `docs/hw_simulators.md`.
 
 ## Search

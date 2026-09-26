@@ -23,12 +23,15 @@ OWNED = [PACKAGE / "hw" / "timeloop", PACKAGE / "hw" / "rdxe",
          PACKAGE / "evaluators" / "hw_timeloop.py", PACKAGE / "evaluators" / "hw_rdxe.py"]
 LEGACY = re.compile(r"rDXE_sim|nsga_search|hw_eval/|sys\.path\.insert|os\.chdir|run_exp_hw|"
                     r"search_space import|remote_trainer|utils\.parse_timeloop_stats")
-_PATTERNS = [r"CICC", r"FinFET", r"TSMC", r"/home/", r"/Users/", r"TOPS/W", r"silicon"]
-# Author and affiliation patterns stay outside the repository, since listing them would identify the
-# authors. Point LLMFORGE_IDENTITY_PATTERNS at a file with one regular expression per line.
-_EXTRA = os.environ.get("LLMFORGE_IDENTITY_PATTERNS")
+_PATTERNS = [r"FinFET", r"TSMC", r"/home/", r"/Users/", r"TOPS/W", r"silicon"]
+# Author, affiliation and venue patterns stay outside the repository, since listing them would
+# identify the authors. They live in the git-ignored file below, which LLMFORGE_IDENTITY_PATTERNS
+# overrides, and the anonymity tests fold them in when it is present.
+_LOCAL = PACKAGE.parents[1] / "configs" / "local" / "identity_patterns.txt"
+_EXTRA = os.environ.get("LLMFORGE_IDENTITY_PATTERNS", str(_LOCAL))
 if _EXTRA and pathlib.Path(_EXTRA).is_file():
-    _PATTERNS += [l.strip() for l in pathlib.Path(_EXTRA).read_text().splitlines() if l.strip()]
+    _PATTERNS += [l.strip() for l in pathlib.Path(_EXTRA).read_text().splitlines()
+                  if l.strip() and not l.startswith("#")]
 IDENTIFYING = re.compile("|".join(_PATTERNS), re.IGNORECASE)
 
 

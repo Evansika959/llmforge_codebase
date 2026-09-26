@@ -1,0 +1,68 @@
+{
+  "relocated_date": "2026-09-13",
+  "from": "scripts/sweep",
+  "to": "scripts/prediction",
+  "scripts": [
+    "audit_gross_energy.py",
+    "audit_proposed_physics_surrogate.py",
+    "compare_physics_priors.py",
+    "compare_search_surrogates.py",
+    "compare_surrogates.py",
+    "diagnose_surrogate_error.py",
+    "evaluate_batch2_progress.py",
+    "evaluate_gross_energy.py",
+    "investigate_state_signal.py",
+    "physics_surrogate_components.py",
+    "plot_state_signal.py",
+    "predict_proposed_physics_surrogate.py",
+    "predict_surrogates.py",
+    "report_batch2_progress.py",
+    "report_error_diagnosis.py",
+    "report_surrogates.py",
+    "train_proposed_physics_surrogate.py",
+    "transformer_learning_curve.py"
+  ],
+  "outputs": {
+    "architecture_search_models_936": {
+      "files": 52,
+      "sha256": "e3675bb0838dffaa15f323afed6d4de2cc5b7de389cc7fd1dfef7654f56315f7"
+    },
+    "batch2_progress_632": {
+      "files": 24,
+      "sha256": "2b8bb9029df0c91bb2e9ddd045ca6adeba7f11060682b91e9d663e2d39bfd7ef"
+    },
+    "gross_energy_comparison_1564": {
+      "files": 27,
+      "sha256": "6d13d8d01ef9583d4fd33523352f54c183fab6f35ccacba9b24c02f57db93411"
+    },
+    "gross_energy_comparison_1564_setup_archive": {
+      "files": 3,
+      "sha256": "bbe26fe8c956c7c302dee0ea69572b1d9915a4982c884863cd7c4db08e97da97"
+    },
+    "proposed_physics_surrogate_936": {
+      "files": 20,
+      "sha256": "773d6a8b9b537d370225ede74d6ab77e19a83777adc7f89048576fbc2662d155"
+    },
+    "state_signal_investigation_936": {
+      "files": 8,
+      "sha256": "69d89968657f873f9e5e72b1585cd8e51893ba99d9f2444d7739b80a6048fc58"
+    },
+    "surrogate_comparison_936": {
+      "files": 20,
+      "sha256": "9e14eabdd8b8b90884d4ef142286b5717d9ae80082cdc39edc9fa09e7c4b6243"
+    },
+    "transformer_learning_curve_936": {
+      "files": 8,
+      "sha256": "b83273d92a203788cb2721cb7ba02658e85b8c3aeee9c774647a0e4027754aa4"
+    },
+    "xgboost_error_diagnosis_936": {
+      "files": 32,
+      "sha256": "db775fef3ddb3eb3c69a41ee8816182a91c6e55ea11924226fa28283cc98ed3f"
+    },
+    "xgboost_physics_priors_936": {
+      "files": 53,
+      "sha256": "c4be8ffa4d0a9b8048970b61ef20fbe5e285f1d0c778f133c7881bdb6b96a0d3"
+    }
+  },
+  "hash_definition": "Per directory: sorted relative file path + NUL + file SHA256 + newline, then SHA256 of the concatenated bytes. Paths and content of existing artifact files remain unchanged relative to each experiment directory."
+}

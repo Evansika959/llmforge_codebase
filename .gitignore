@@ -13,6 +13,7 @@ dist/
 
 # Experiment working directories (large, regenerable; experiments run inside this repo)
 /runs/
+/runs_v2/
 /logs/
 /data/
 /checkpoints/
@@ -28,7 +29,12 @@ wandb/
 
 .DS_Store
 
-# Third-party checkouts fetched by scripts/setup/fetch_third_party.sh
-/third_party/ReaLLM-Forge/
-/third_party/nanollmforge.c/
-third_party/timeloop-build/
+# Working checkouts and build trees of external projects. The parts this project needs are vendored
+# under vendor/ instead, so nothing here ships.
+/third_party/
+
+# Build products of the vendored device runtime
+/vendor/device_runtime/run*
+!/vendor/device_runtime/run*.c
+!/vendor/device_runtime/run*.ipynb
+*.o

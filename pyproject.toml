@@ -15,7 +15,7 @@ dependencies = ["numpy>=1.24", "pyyaml>=6.0"]
 # Elastic supernets: training, slice scoring, extraction. The elastic forwards patch Hugging Face
 # attention internals, so transformers stays on the tested minor version.
 supernet = ["torch>=2.3", "transformers>=4.53,<4.54", "safetensors>=0.4", "pyarrow>=14", "datasets>=2.19"]
-# GPU target. Also needs the pinned ReaLLM-Forge checkout, see scripts/setup/fetch_third_party.sh.
+# GPU target. The GPT implementation it instantiates is vendored under vendor/gpt_model.
 zeus = ["torch>=2.3", "zeus>=0.10"]
 # Pixel Watch 5 predictor and its active-learning method.
 device = ["xgboost>=2.0", "scikit-learn>=1.3", "joblib>=1.3", "pandas>=2.0"]

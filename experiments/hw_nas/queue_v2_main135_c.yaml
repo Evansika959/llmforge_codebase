@@ -1,0 +1,161 @@
+supernets:
+  nkv_sl135_new: runs/supernet/nkv_sl135_lr3.6e-4/step2500
+jobs:
+- name: rdxe__smollm2-135m_nkv__grid
+  args:
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: &id001
+    - n_workers=8
+    objectives: &id002
+    - val_loss
+    - energy_per_token_uJ
+    - tpot_ms
+    space: smollm2-135m_nkv_uniform
+    supernet: nkv_sl135_new
+    algo: grid
+    out: runs_v2/search/rdxe__smollm2-135m_nkv__grid
+- name: rdxe__smollm2-135m_nkv__nsga2__s2
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    seed: 2
+    out: runs_v2/search/rdxe__smollm2-135m_nkv__nsga2__s2
+- name: rdxe__smollm2-135m_nkv__random__s0
+  args:
+    algo: random
+    pop: 32
+    generations: 25
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    out: runs_v2/search/rdxe__smollm2-135m_nkv__random__s0
+- name: rdxe__smollm2-135m_nkv__random__s1
+  args:
+    algo: random
+    pop: 32
+    generations: 25
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    seed: 1
+    out: runs_v2/search/rdxe__smollm2-135m_nkv__random__s1
+- name: rdxe__smollm2-135m_nkv__random__s2
+  args:
+    algo: random
+    pop: 32
+    generations: 25
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    seed: 2
+    out: runs_v2/search/rdxe__smollm2-135m_nkv__random__s2
+- name: rdxe__smollm2-135m_nkv_gqa__nsga2__s0
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    space: smollm2-135m_nkv_gqa
+    supernet: nkv_sl135_new
+    out: runs_v2/search/rdxe__smollm2-135m_nkv_gqa__nsga2__s0
+- name: rdxe__smollm2-135m_nkv_gqa__nsga2__s1
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    space: smollm2-135m_nkv_gqa
+    supernet: nkv_sl135_new
+    seed: 1
+    out: runs_v2/search/rdxe__smollm2-135m_nkv_gqa__nsga2__s1
+- name: rdxe__smollm2-135m_nkv_gqa__nsga2__s2
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives: *id002
+    space: smollm2-135m_nkv_gqa
+    supernet: nkv_sl135_new
+    seed: 2
+    out: runs_v2/search/rdxe__smollm2-135m_nkv_gqa__nsga2__s2
+- name: rdxe-e__smollm2-135m_nkv__nsga2__s0
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives:
+    - val_loss
+    - energy_per_token_uJ
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    out: runs_v2/search/rdxe-e__smollm2-135m_nkv__nsga2__s0
+- name: rdxe-t__smollm2-135m_nkv__nsga2__s0
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives:
+    - val_loss
+    - ttft_ms
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    out: runs_v2/search/rdxe-t__smollm2-135m_nkv__nsga2__s0
+- name: rdxe-ec__smollm2-135m_nkv__nsga2__s0
+  args:
+    algo: nsga2
+    pop: 32
+    generations: 25
+    hw: rdxe
+    prefill_len: 128
+    decode_len: 32
+    hw_arg: *id001
+    objectives:
+    - val_loss
+    - energy_per_token_uJ
+    space: smollm2-135m_nkv
+    supernet: nkv_sl135_new
+    constraint:
+    - ttft_ms<=2.0
+    out: runs_v2/search/rdxe-ec__smollm2-135m_nkv__nsga2__s0

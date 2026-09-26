@@ -1,0 +1,34 @@
+# Pixel Watch 5 on the five-knob space at SmolLM2-360M.
+#
+# 360M is the second family the layerwise predictor was fitted on, and its training domain
+# (n_h 5..15, n_kv 1..15, d_qk 16..64, d_v 16..64, d_mlp 640..2560) fully covers this search
+# space's grid, so no candidate needs extrapolation.
+#
+# Same supernet as the other 360M five-knob runs, nkv_sl360_lr2.1e-4, so the whole comparison
+# sits on one supernet and one scale.
+#
+#   LLMFORGE_DEVICE_BUNDLES=<delivery dir> PYTHONPATH=src .venv/bin/python \
+#     experiments/hw_nas/queue.py experiments/hw_nas/queue_v2_watch360_nkv.yaml
+defaults:
+  n_docs: 32
+  val_docs: 64
+  max_len: 1024
+  space: smollm2-360m_nkv
+  supernet: nkv_sl360
+  hw: device
+  device_bundle: layerwise_tpot_2000_20260922/models/predictor_final
+  objectives: [val_loss, energy_per_token_uJ]
+  algo: nsga2
+  pop: 32
+  generations: 25
+
+supernets:
+  nkv_sl360: runs/supernet/nkv_sl360_lr2.1e-4/step2500
+
+jobs:
+  - name: watch__smollm2-360m_nkv__nsga2__s0
+    args: {seed: 0, out: runs_v2/search/watch__smollm2-360m_nkv__nsga2__s0}
+  - name: watch__smollm2-360m_nkv__nsga2__s1
+    args: {seed: 1, out: runs_v2/search/watch__smollm2-360m_nkv__nsga2__s1}
+  - name: watch__smollm2-360m_nkv__nsga2__s2
+    args: {seed: 2, out: runs_v2/search/watch__smollm2-360m_nkv__nsga2__s2}

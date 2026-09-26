@@ -1,0 +1,25 @@
+# Parameter-count proxy at SmolLM2-360M, seeds 1 and 2.
+#
+# Seed 0 already exists. The proxy is the reference line of the trend figure, the one that shows a
+# parameter budget is not a stand-in for a measured hardware cost, so it needs the same seed band the
+# hardware lines carry. Without it a single-seed line reads as more precise than the lines beside it.
+defaults:
+  n_docs: 32
+  val_docs: 64
+  max_len: 1024
+  space: configs/search_spaces/smollm2-360m_nkv.yaml
+  hw: analytic
+  algo: nsga2
+  pop: 32
+  generations: 25
+  objectives: [val_loss, params_M]
+  supernet: nkv_sl360
+
+supernets:
+  nkv_sl360: runs/supernet/nkv_sl360_lr2.1e-4/step2500
+
+jobs:
+  - name: proxy-params__smollm2-360m_nkv__nsga2__s1
+    args: {seed: 1, out: runs_v2/search/proxy-params__smollm2-360m_nkv__nsga2__s1}
+  - name: proxy-params__smollm2-360m_nkv__nsga2__s2
+    args: {seed: 2, out: runs_v2/search/proxy-params__smollm2-360m_nkv__nsga2__s2}

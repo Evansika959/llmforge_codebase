@@ -84,7 +84,7 @@ def main():
         '- Batch2 starts warmer (median 39.5°C versus 36.8°C). Temperature is diagnostic only, never an input. The batch2-only control helps expose distribution adaptation; it does not isolate a causal thermal effect.',
         '- Bootstrap resamples test architectures and averages each row’s errors across seeds first. Intervals assume independent test rows and are not adjusted for many comparisons or temporal correlation. Previously reused old test remains exploratory.',
         '- Preserve a future contiguous acquisition block for forward-transfer testing before claiming generalization to future watch sessions. The present new-batch split is random within the observed snapshot.',
-        '- Workload/labels unchanged: nominal48 prompt is inferred49 actual tokens,32 normal outputs, and dynamic energy includes prefill. No change to runq_reallm.c or device experiments.']
+        '- Workload/labels unchanged: nominal48 prompt is inferred49 actual tokens,32 normal outputs, and dynamic energy includes prefill. No change to runq_llmforge.c or device experiments.']
     (out / 'SUMMARY.md').write_text('\n'.join(lines)+'\n')
     (out / 'audit.json').write_text(json.dumps(dict(passed=True, baseline_checks=checks, oof_folds=len(folds), train_n=len(train), validation_n=len(val), test_n=len(test)), indent=2))
     print('\n'.join(lines))

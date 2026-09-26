@@ -1,17 +1,17 @@
 """GPU tests for the measured decode path: the preallocated KV cache must reproduce the uncached model.
 
-Skipped without CUDA or without the pinned ReaLLM-Forge checkout. Run on an idle GPU, since the
+Skipped without CUDA or without the vendored GPT implementation. Run on an idle GPU, since the
 tests allocate models while other GPU work may be measuring energy.
 """
 import pytest
 
 torch = pytest.importorskip("torch")
 
-from llmforge.paths import REALLM_FORGE
+from llmforge.paths import GPT_MODEL
 
 pytestmark = pytest.mark.skipif(
-    not torch.cuda.is_available() or not (REALLM_FORGE / "model.py").exists(),
-    reason="needs CUDA and the ReaLLM-Forge checkout")
+    not torch.cuda.is_available() or not (GPT_MODEL / "model.py").exists(),
+    reason="needs CUDA and the vendored GPT implementation")
 
 
 def _individual(space_yaml, seed, uniform):

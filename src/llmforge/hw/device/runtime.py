@@ -1,6 +1,6 @@
 """Locations shared by the measurement harness and the active-learning hardware adapter.
 
-The inference runtime is a separate checkout pinned by commit, see docs/hw_device.md. Its root is
+The inference runtime is vendored under vendor/device_runtime, see docs/hw_device.md. Its root is
 llmforge.paths.DEVICE_RUNTIME, which the LLMFORGE_DEVICE_RUNTIME environment variable overrides.
 Build products, exported models and raw traces are temporary files under the scratch directory.
 """
@@ -10,16 +10,16 @@ import os
 from llmforge import paths
 
 RUNTIME = paths.DEVICE_RUNTIME
-KERNEL_SOURCE = 'src/runq_reallm.c'
+KERNEL_SOURCE = 'src/runq_llmforge.c'
 SAMPLER_SOURCE = 'src/power_sampler.c'
-EXPORTER = 'reallmforge/export_reallm_hetero.py'
+EXPORTER = 'llmforge_bridge/export_llmforge_hetero.py'
 TOKENIZER_CANDIDATES = ('tokenizer_gpt2.bin',
                         'models/nsga_best3_rotary_periln_105M/tokenizer_gpt2.bin',
                         'models/smollm2_135M/tokenizer_gpt2.bin')
 
 WORK = paths.SCRATCH / 'device' / 'sweep'
 SWEEP_OUTPUTS = paths.RUNS / 'device' / 'sweeps'
-SCRATCH_FILES = ('temp_device_ckpt.pt', 'temp_device_model.q8.rlm', 'runq_reallm_device',
+SCRATCH_FILES = ('temp_device_ckpt.pt', 'temp_device_model.q8.rlm', 'runq_llmforge_device',
                  'power_sampler_device', 'temp_trace_raw.csv', 'temp_infer_log.txt')
 
 
@@ -27,7 +27,7 @@ def runtime_file(relative):
     path = RUNTIME / relative
     if not path.is_file():
         raise FileNotFoundError(f'{relative} is missing from the device runtime at {RUNTIME}. '
-                                'Check out the pinned runtime there or set LLMFORGE_DEVICE_RUNTIME.')
+                                'Restore the vendored runtime there or set LLMFORGE_DEVICE_RUNTIME.')
     return path
 
 

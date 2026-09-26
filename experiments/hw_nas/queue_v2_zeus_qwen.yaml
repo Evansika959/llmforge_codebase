@@ -1,0 +1,84 @@
+# Qwen3-1.7B and Qwen3-4B on the LR-corrected five-knob supernets, measured with ZEUS on a dedicated host.
+#
+#   PYTHONPATH=src python experiments/hw_nas/queue.py experiments/hw_nas/queue_v2_zeus_qwen.yaml
+#
+# WHY. nkv_qw17_lr1e-4 and nkv_qw4b_lr8e-5 had never been searched against. This file is the mirror of
+# queue_nkv_gpu.yaml with the supernets repointed to the corrected checkpoints and every job writing to
+# runs_v2/search, so runs/search keeps the numbers the current draft cites.
+#
+# MEASUREMENT CAVEAT, to be stated wherever these GPU numbers appear. They are measured on a different
+# host from the existing GPU rows: the same accelerator model, NVIDIA H100 80GB HBM3, but torch 2.10.0
+# with CUDA 12.8 rather than torch 2.12.1 with CUDA 13.0. Energy is measured, not modeled, so the
+# software stack is part of the protocol. Do not pool these rows with the earlier ones without saying so.
+#
+# ZEUS holds the cross-process GPU lock for the duration of every energy window, and this runner executes
+# one job at a time, so nothing else may use this GPU while the queue runs. Do not start a second runner.
+#
+# Ordering is cheapest first, so a configuration error surfaces in minutes rather than hours. The 4B
+# serving measurement is last because it alone takes about eight hours.
+#
+#   Phase A  analytic proxies, 4 runs        ~1.7 h   also smoke-tests supernet scoring at both scales
+#   Phase B  1.7B prefill energy, 5 runs    ~9.5 h
+#   Phase C  serving energy, 2 runs         ~10 h    the 4B run dominates
+#   total    11 runs                        ~21 h
+
+supernets:
+  nkv_qw17_new: runs/supernet/nkv_qw17_lr1e-4/step2500
+  nkv_qw4b_new: runs/supernet/nkv_qw4b_lr8e-5/step2500
+
+templates:
+  gpu: &gpu {hw: zeus, prefill_len: 512, decode_len: 0, zeus_batch: 64, zeus_repeats: 3,
+             zeus_min_window_s: 2.0, objectives: [val_loss, prefill_energy_per_token_uJ]}
+  # The grouped schedule, the 1.5 s settle and the 6 s decode window reproduce the protocol the existing
+  # gpu-serve run measured under. cosearch defaults to interleaved with no settle, which would measure a
+  # different thing and make the comparison against the width-only run meaningless.
+  gpu_serve: &gpu_serve {hw: zeus, prefill_len: 512, decode_len: 128, zeus_batch: 64, zeus_repeats: 3,
+                         zeus_cuda_graphs: true, zeus_min_window_s: 2.0, zeus_schedule: grouped,
+                         zeus_settle_s: 1.5, zeus_decode_window_s: 6.0,
+                         objectives: [val_loss, energy_per_token_uJ, tpot_ms]}
+  nsga: &nsga {algo: nsga2, pop: 32, generations: 25}
+  rand: &rand {algo: random, pop: 32, generations: 25}
+  proxy_params: &proxy_params {hw: analytic, algo: nsga2, pop: 32, generations: 25,
+                               objectives: [val_loss, params_M]}
+  proxy_flops: &proxy_flops {hw: analytic, algo: nsga2, pop: 32, generations: 25,
+                             objectives: [val_loss, flops_per_token], analytic_seq_len: 512}
+
+jobs:
+  # ---- Phase A: hardware-agnostic controls, and a cheap end-to-end check of both supernets ----
+  - name: proxy-params__qwen3-1.7b_nkv__nsga2__s0
+    args: {<<: *proxy_params, space: qwen3-1.7b_nkv, supernet: nkv_qw17_new,
+           out: runs_v2/search/proxy-params__qwen3-1.7b_nkv__nsga2__s0}
+  - name: proxy-flops__qwen3-1.7b_nkv__nsga2__s0
+    args: {<<: *proxy_flops, space: qwen3-1.7b_nkv, supernet: nkv_qw17_new,
+           out: runs_v2/search/proxy-flops__qwen3-1.7b_nkv__nsga2__s0}
+  - name: proxy-params__qwen3-4b_nkv__nsga2__s0
+    args: {<<: *proxy_params, space: qwen3-4b_nkv, supernet: nkv_qw4b_new,
+           out: runs_v2/search/proxy-params__qwen3-4b_nkv__nsga2__s0}
+  - name: proxy-flops__qwen3-4b_nkv__nsga2__s0
+    args: {<<: *proxy_flops, space: qwen3-4b_nkv, supernet: nkv_qw4b_new,
+           out: runs_v2/search/proxy-flops__qwen3-4b_nkv__nsga2__s0}
+
+  # ---- Phase B: Qwen3-1.7B prefill energy, the uniform grid then three seeds then random ----
+  - name: gpu__qwen3-1.7b_nkv__grid
+    args: {<<: *gpu, space: qwen3-1.7b_nkv_uniform, supernet: nkv_qw17_new, algo: grid,
+           out: runs_v2/search/gpu__qwen3-1.7b_nkv__grid}
+  - name: gpu__qwen3-1.7b_nkv__nsga2__s0
+    args: {<<: [*gpu, *nsga], space: qwen3-1.7b_nkv, supernet: nkv_qw17_new,
+           out: runs_v2/search/gpu__qwen3-1.7b_nkv__nsga2__s0}
+  - name: gpu__qwen3-1.7b_nkv__nsga2__s1
+    args: {<<: [*gpu, *nsga], space: qwen3-1.7b_nkv, supernet: nkv_qw17_new, seed: 1,
+           out: runs_v2/search/gpu__qwen3-1.7b_nkv__nsga2__s1}
+  - name: gpu__qwen3-1.7b_nkv__nsga2__s2
+    args: {<<: [*gpu, *nsga], space: qwen3-1.7b_nkv, supernet: nkv_qw17_new, seed: 2,
+           out: runs_v2/search/gpu__qwen3-1.7b_nkv__nsga2__s2}
+  - name: gpu__qwen3-1.7b_nkv__random__s0
+    args: {<<: [*gpu, *rand], space: qwen3-1.7b_nkv, supernet: nkv_qw17_new,
+           out: runs_v2/search/gpu__qwen3-1.7b_nkv__random__s0}
+
+  # ---- Phase C: serving energy. The 4B run is last because it alone takes about eight hours ----
+  - name: gpu-serve__qwen3-1.7b_nkv__nsga2__s0
+    args: {<<: [*gpu_serve, *nsga], space: qwen3-1.7b_nkv, supernet: nkv_qw17_new,
+           out: runs_v2/search/gpu-serve__qwen3-1.7b_nkv__nsga2__s0}
+  - name: gpu-serve__qwen3-4b_nkv__nsga2__s0
+    args: {<<: [*gpu_serve, *nsga], space: qwen3-4b_nkv, supernet: nkv_qw4b_new,
+           out: runs_v2/search/gpu-serve__qwen3-4b_nkv__nsga2__s0}
