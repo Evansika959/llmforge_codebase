@@ -14,6 +14,7 @@ dist/
 # Experiment working directories (large, regenerable; experiments run inside this repo)
 /runs/
 /runs_v2/
+/runs_rebuttal/
 /logs/
 /data/
 /checkpoints/

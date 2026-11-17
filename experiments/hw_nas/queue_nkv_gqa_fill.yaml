@@ -2,13 +2,8 @@
 #
 #   PYTHONPATH=src .venv/bin/python experiments/hw_nas/queue.py experiments/hw_nas/queue_nkv_gqa_fill.yaml
 #
-# WHY. The ablation that asks what the Infinite-Head parameterization buys currently rests on two backends
-# that disagree. On Gemmini the Infinite-Head space leads the grouped-query one by 2.9%, with the three-seed
-# intervals separated by only 0.0029. On the ring accelerator it trails by 5.0%, and four independent
-# comparisons agree on that: matched-loss cost, front coverage in both directions, and both cost axes. One
-# backend for and one against is not a result. Eyeriss and FLAT are the other two off-chip substrates, so
-# they decide whether the Gemmini outcome generalises to backends that stream weights from off chip or is
-# specific to Gemmini.
+# WHY. Runs the grouped-query arm of the Infinite-Head ablation on Eyeriss and FLAT, the two off-chip
+# substrates besides Gemmini, so the ablation covers every backend that streams weights from off chip.
 #
 # Jobs are grouped by backend rather than interleaved by seed. If this is interrupted, that yields one
 # complete three-seed backend rather than two half-finished ones.

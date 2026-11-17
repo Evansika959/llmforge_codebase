@@ -70,6 +70,11 @@ def main():
                     help="'base' for the published checkpoint, or a supernet checkpoint directory")
     ap.add_argument("--grad-ckpt", action="store_true",
                     help="non-reentrant gradient checkpointing, for models above SmolLM2 scale")
+    ap.add_argument("--base-align", action="store_true",
+                    help="with --init base, attach the supernet's KV-group alignment and logit "
+                         "temperature at their zero (identity) initialisation, so the student has "
+                         "the same parameters as a supernet-initialised one. Required for any "
+                         "architecture with n_kv below full width; off by default.")
     a = ap.parse_args()
 
     spec = SPECS[a.model]
@@ -95,9 +100,14 @@ def main():
     for p in teacher.parameters():
         p.requires_grad_(False)
     if a.init == "base":
+        from llmforge.supernet.train.base_init import attach_supernet_params, needs_kv_alignment
+        if needs_kv_alignment(cfg.n_kv, spec.n_kv) and not a.base_align:
+            raise SystemExit(f"[{a.arch}] n_kv below full width needs --base-align with --init base")
         student = AutoModelForCausalLM.from_pretrained(
             spec.repo, torch_dtype=torch.bfloat16).to(dev)
         enable_elastic(student)
+        if a.base_align:
+            attach_supernet_params(student)
     else:
         student, _, _ = load_supernet(a.init, spec, dev=dev)
     set_elastic_backend("sdpa")
@@ -152,9 +162,18 @@ def main():
     # in this project is stored.
     sd = {k: v.contiguous() for k, v in student.state_dict().items() if k != "lm_head.weight"}
     save_file(sd, os.path.join(d, "model.safetensors"))
+    import platform, transformers
     json.dump({**A, "steps": a.steps, "lr": a.lr, "model": spec.key, "init": a.init,
                "parent_head_dim": spec.head_dim, "heterogeneous": True,
-               "hours": (time.time() - t0) / 3600},
+               "hours": (time.time() - t0) / 3600,
+               "recipe": {"batch": a.batch, "accum": a.accum, "mix": a.mix, "kd": a.kd,
+                          "tau": a.tau, "data_seed": a.data_seed, "warmup": 200,
+                          "base_align": a.base_align, "grad_ckpt": a.grad_ckpt},
+               "argv": sys.argv,
+               "versions": {"python": platform.python_version(), "torch": torch.__version__,
+                            "transformers": transformers.__version__,
+                            "cuda": torch.version.cuda,
+                            "gpu": torch.cuda.get_device_name(0)}},
               open(os.path.join(d, "arch.json"), "w"), indent=1)
     print(f"[{a.arch}] saved {d} in {(time.time()-t0)/3600:.2f} h", flush=True)
 

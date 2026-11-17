@@ -241,3 +241,49 @@ def sandwich_ab(step, total_steps, spec, K=2, anneal_frac=0.1, rng=random, block
         configs.append(sample_ab(spec, per_layer=per_layer, rng=rng,
                                  blocks=blocks and per_layer, with_nkv=with_nkv))
     return configs
+
+
+# ---------------------------------------------------------------- restricted spaces
+
+class RestrictedSpec:
+    """A ModelSpec whose knob grids are narrowed to a search-space config, for the sampler only.
+
+    Training samples over the spec's full grids by default. A supernet meant for a smaller space
+    (for example the GQA-only space, where d_qk and d_v stay at the base head dimension) passes the
+    space config through `--space`, and this wrapper hands the sampler and the in-training probes
+    the narrowed grids while every other attribute comes from the base spec. Model construction
+    and the alignment parameters keep using the base spec, so the checkpoint has the same layout
+    as every other supernet and loads with the same code.
+    """
+
+    def __init__(self, spec, qk_grid, nh_grid, nkv_grid, mlp_grid):
+        for name, sub, full in (("n_qk_head_dim", qk_grid, spec.qk_grid),
+                                ("n_head", nh_grid, spec.nh_grid),
+                                ("n_kv_group", nkv_grid, spec.nkv_grid),
+                                ("mlp_size", mlp_grid, spec.mlp_grid)):
+            if not sub or not set(sub) <= set(full):
+                raise ValueError(f"{name} {sub} is not a non-empty subset of {spec.key}'s {full}")
+        self._spec = spec
+        self.qk_grid = sorted(qk_grid)
+        self.nh_grid = sorted(nh_grid)
+        self.nkv_grid = sorted(nkv_grid)
+        self.mlp_grid = sorted(mlp_grid)
+
+    def __getattr__(self, name):
+        return getattr(self._spec, name)
+
+
+def restrict_spec(spec, space_path):
+    """Read a configs/search_spaces/*.yaml and return the RestrictedSpec for it.
+
+    The sampler draws d_qk and d_v from one grid, so the config's two head-dim grids must agree.
+    """
+    import yaml
+    with open(space_path) as f:
+        cfg = yaml.safe_load(f)
+    if cfg.get("base_model") != spec.key:
+        raise ValueError(f"{space_path} is for {cfg.get('base_model')}, not {spec.key}")
+    k = cfg["knobs"]
+    if sorted(k["n_qk_head_dim"]) != sorted(k["n_v_head_dim"]):
+        raise ValueError("the sampler uses one grid for d_qk and d_v; the config's grids differ")
+    return RestrictedSpec(spec, k["n_qk_head_dim"], k["n_head"], k["n_kv_group"], k["mlp_size"])

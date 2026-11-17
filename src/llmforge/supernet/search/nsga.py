@@ -76,7 +76,28 @@ def load_supernet(ckpt, spec, dev="cuda"):
     if ls == 0:
         raise SystemExit("no logit_scale in checkpoint -- wrong dir or untrained model")
     model.config.use_cache = False
-    return model, AutoTokenizer.from_pretrained(spec.repo), pair_order_for(spec)
+    return model, AutoTokenizer.from_pretrained(spec.repo), pair_order_of(ckpt, spec)
+
+
+def pair_order_of(ckpt, spec):
+    """The rotary pair order a checkpoint was trained with.
+
+    A supernet trained with `uptrain --rope-order prefix` records that in its run.json and must be
+    sliced the same way, or every narrowed d_qk reads pairs it was never trained to keep. A
+    checkpoint whose run.json lacks the field, or that has no run.json, was trained with the
+    default interleaved order.
+    """
+    p = os.path.join(ckpt, "run.json")
+    mode = "interleaved"
+    if os.path.exists(p):
+        with open(p) as f:
+            mode = json.load(f).get("rope_order", "interleaved")
+    if mode == "interleaved":
+        return pair_order_for(spec)
+    if mode == "prefix":
+        print(f"[loader] {ckpt}: rope order 'prefix' from run.json", flush=True)
+        return build_pair_order("natural", spec.head_dim // 2)
+    raise ValueError(f"unknown rope_order {mode!r} in {p}")
 
 
 @torch.no_grad()

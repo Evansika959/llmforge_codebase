@@ -178,7 +178,7 @@ print(f"TPOT:    {result.tpot_us:.2f} us")
 ## Caveats
 
 - **Energy is an approximation**: Timeloop energy tables for compute and SRAM, analytical models for VRC and inter-chip communication.
-- **Dynamic energy only**: no leakage, clock tree, control logic, or I/O pad modeling.
+- **Leakage from component estimates only**: chip leakage comes from the Accelergy component estimates of the
+  cores, SRAMs and global buffer. Clock tree, control logic and I/O pads are not modeled.
 - **Single-chip mode requires WMEM reload** for any model above 3 MB, which covers most edge LLMs. The ring topology with one layer per chip is the design's intended operating mode.
 - **Context length must be Timeloop-mappable**: small contexts are rounded up to powers of 2 up to 128, larger ones to multiples of 128, for DXE's spatial constraint.
-- **Co-search profile is homogeneous**: `cosearch.run_rdxe_eval` costs every active layer like the first active layer.

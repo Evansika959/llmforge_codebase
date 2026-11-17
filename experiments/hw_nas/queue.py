@@ -15,7 +15,13 @@ A runner records the job it is running in runs/logs/hw_nas/<queue>.running. A ne
 while an earlier job process is still alive waits for that process first, so a runner can be
 replaced without two jobs overlapping on the GPU.
 
+Both are configurable without changing the default: --log-dir moves logs, the runner's lock and
+its .running file, and a top-level `env:` mapping in the YAML sets environment variables for every
+job, for example LLMFORGE_RUNS to keep evaluation caches out of runs/. Relative paths in `env`
+resolve against the repository root.
+
 YAML schema
+    env:        optional, environment variables for every job
     defaults:   cosearch arguments shared by every job, overridden by a job's own args
     supernets:  name -> checkpoint directory, referenced from a job as `supernet: NAME`
     jobs:
@@ -113,15 +119,30 @@ def _alive(pid) -> bool:
         return False
 
 
+def job_env(cfg: dict, base: dict) -> dict:
+    """Environment of every job: the runner's, src on PYTHONPATH, and the YAML's optional `env`."""
+    env = dict(base)
+    env["PYTHONPATH"] = str(ROOT / "src") + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    env.setdefault("HF_HUB_OFFLINE", "1")
+    for k, v in (cfg.get("env") or {}).items():
+        v = str(v)
+        if k.startswith("LLMFORGE_") and not os.path.isabs(v):
+            v = str(ROOT / v)
+        env[str(k)] = v
+    return env
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("queue")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--only", default=None, help="run only jobs whose name matches this regex")
+    ap.add_argument("--log-dir", default=None, help=f"logs, lock and .running file, default {LOGS.relative_to(ROOT)}")
     a = ap.parse_args()
     qpath = Path(a.queue).resolve()
-    LOGS.mkdir(parents=True, exist_ok=True)
-    running_file = LOGS / f"{qpath.stem}.running"
+    logs = Path(a.log_dir).resolve() if a.log_dir else LOGS
+    logs.mkdir(parents=True, exist_ok=True)
+    running_file = logs / f"{qpath.stem}.running"
 
     def running() -> dict:
         try:
@@ -136,11 +157,11 @@ def main():
             print(f"{job['name']:55s} {status_of(job, cfg, r)}")
         return
 
-    lock = open(LOGS / f"{qpath.stem}.lock", "w")
+    lock = open(logs / f"{qpath.stem}.lock", "w")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
-        raise SystemExit(f"another runner holds {LOGS / (qpath.stem + '.lock')}")
+        raise SystemExit(f"another runner holds {logs / (qpath.stem + '.lock')}")
 
     prev = running()
     if _alive(prev.get("pid")):
@@ -148,12 +169,10 @@ def main():
         while _alive(prev.get("pid")):
             time.sleep(20)
 
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(ROOT / "src") + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
-    env.setdefault("HF_HUB_OFFLINE", "1")
     attempted = set()
     while True:
         cfg = yaml.safe_load(qpath.read_text())
+        env = job_env(cfg, os.environ)
         todo = [j for j in cfg["jobs"] if j["name"] not in attempted
                 and (a.only is None or re.search(a.only, j["name"]))
                 and status_of(j, cfg, {}).split()[0] not in ("done", "failed")]
@@ -169,7 +188,7 @@ def main():
             t0 = time.time()
             note = f", attempt {attempt + 1} of {retries + 1}" if attempt else ""
             print(f"[{time.strftime('%m-%d %H:%M')}] start {job['name']}{note}", flush=True)
-            with open(LOGS / f"{job['name']}.log", "a") as log:
+            with open(logs / f"{job['name']}.log", "a") as log:
                 log.write(f"\n$ {' '.join(cmd)}\n")
                 log.flush()
                 proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
@@ -183,7 +202,7 @@ def main():
                   flush=True)
             time.sleep(RETRY_DELAY_S)
         if rc != 0:
-            (out / "FAILED").write_text(f"exit {rc} after {mins:.1f} min, see {LOGS / (job['name'] + '.log')}\n")
+            (out / "FAILED").write_text(f"exit {rc} after {mins:.1f} min, see {logs / (job['name'] + '.log')}\n")
         elif "command" in job:
             (out / "DONE").write_text(time.strftime("%Y-%m-%d %H:%M:%S") + "\n")
         print(f"[{time.strftime('%m-%d %H:%M')}] {'done' if rc == 0 else f'FAILED ({rc})'} {job['name']} "

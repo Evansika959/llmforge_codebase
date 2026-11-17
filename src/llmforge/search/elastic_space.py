@@ -22,6 +22,12 @@ active. The attention knobs share the attention partition and d_mlp uses the MLP
                n_blocks contiguous blocks of equal size
     per_layer  one block per layer
 
+Two switchable restrictions serve the search-space attribution ablations. Both are off by default.
+
+    grid_subset  {knob: values}, a sub-grid of the supernet grid per knob, for example
+                 {n_kv_group: [3]} keeps n_kv at the base value
+    tie_dims     d_v follows d_qk in every block, one shared head-dimension knob
+
 Write the YAML files that document each space with
     python -m llmforge.search.elastic_space --write-configs configs/search_spaces
 """
@@ -50,7 +56,9 @@ PAPER_NAMES = {"n_head": "n_h", "n_qk_head_dim": "d_qk", "n_v_head_dim": "d_v", 
 class ElasticSearchSpace:
     def __init__(self, base_model: str, partition: str = "blocks", n_blocks: int = 5,
                  block_size: int = 1024, mutation_step_prob: float = 0.7,
-                 seed: Optional[int] = None, with_nkv: bool = False, gqa_dims: bool = False):
+                 seed: Optional[int] = None, with_nkv: bool = False, gqa_dims: bool = False,
+                 grid_subset: Optional[Dict[str, List[int]]] = None, tie_dims: bool = False,
+                 kv_cap: Optional[int] = None):
         from ..supernet.config import SPECS
         from ..supernet.elastic.sampler import blocks_for, head_grid
 
@@ -87,6 +95,38 @@ class ElasticSearchSpace:
         if self.gqa_dims:
             self.grids["n_qk_head_dim"] = [int(spec.head_dim)]
             self.grids["n_v_head_dim"] = [int(spec.head_dim)]
+        # Attribution ablations. A sub-grid pins or narrows a knob the same way gqa_dims does, so the
+        # operators need no change for it. Every value must lie on the supernet grid.
+        self.grid_subset = {str(k): sorted(int(x) for x in v) for k, v in (grid_subset or {}).items()}
+        for k, sub in self.grid_subset.items():
+            if k not in self.grids:
+                raise ValueError(f"grid_subset: knob {k} is not in the space, set with_nkv for n_kv_group")
+            if not sub or any(x not in self.grids[k] for x in sub):
+                raise ValueError(f"grid_subset: {k}={sub} is not a non-empty subset of {self.grids[k]}")
+            self.grids[k] = sub
+        if self.with_nkv:
+            orphans = [h for h in self.grids["n_head"] if not any(h % k == 0 for k in self.grids[KV_KNOB])]
+            if orphans:
+                raise ValueError(f"n_head values {orphans} have no n_kv_group in {self.grids[KV_KNOB]} dividing them")
+        # tie_dims makes d_v a copy of d_qk in every block. The d_v gene stays in the genome so keys,
+        # archives and genomes keep their layout, but no operator draws or mutates it independently.
+        self.tie_dims = bool(tie_dims)
+        self.tied = {"n_v_head_dim": "n_qk_head_dim"} if self.tie_dims else {}
+        if self.tie_dims and self.grids["n_v_head_dim"] != self.grids["n_qk_head_dim"]:
+            raise ValueError("tie_dims needs identical d_qk and d_v grids")
+        # kv_cap makes n_kv a function of n_h in every block, n_kv = min(n_h, kv_cap): the KV group count is
+        # not searched, but stays legal where n_h drops below the base count (Qwen3-0.6B: n_h in {2, 4, 8, 16}
+        # with base n_kv 8). Like a tied knob, the n_kv gene stays in the genome and is derived, never drawn.
+        self.kv_cap = None if kv_cap is None else int(kv_cap)
+        if self.kv_cap is not None:
+            if not self.with_nkv:
+                raise ValueError("kv_cap needs with_nkv")
+            derived = sorted({min(h, self.kv_cap) for h in self.grids["n_head"]})
+            if any(k not in self.grids[KV_KNOB] or h % min(h, self.kv_cap) for k in derived
+                   for h in self.grids["n_head"]):
+                raise ValueError(f"kv_cap={kv_cap}: min(n_h, kv_cap) over n_h {self.grids['n_head']} gives "
+                                 f"{derived}, which must lie on the n_kv grid {self.grids[KV_KNOB]} and divide n_h")
+            self.grids[KV_KNOB] = derived
         n = spec.n_layers
         if partition == "uniform":
             attn = mlp = [(0, n)]
@@ -111,7 +151,9 @@ class ElasticSearchSpace:
         space = cls(cfg["base_model"], partition=partition or declared,
                     n_blocks=cfg.get("n_blocks", 5), block_size=cfg.get("block_size", 1024),
                     mutation_step_prob=cfg.get("mutation_step_prob", 0.7), seed=seed,
-                    with_nkv=cfg.get("with_nkv", False), gqa_dims=cfg.get("gqa_dims", False))
+                    with_nkv=cfg.get("with_nkv", False), gqa_dims=cfg.get("gqa_dims", False),
+                    grid_subset=cfg.get("grid_subset"), tie_dims=cfg.get("tie_dims", False),
+                    kv_cap=cfg.get("kv_cap"))
         for knob, grid in (cfg.get("knobs") or {}).items():
             if knob not in space.grids:
                 raise ValueError(f"{path}: knob {knob} is not in the space, set with_nkv for n_kv_group")
@@ -143,6 +185,12 @@ class ElasticSearchSpace:
             out["with_nkv"] = True
         if self.gqa_dims:
             out["gqa_dims"] = True
+        if self.grid_subset:
+            out["grid_subset"] = {k: list(v) for k, v in self.grid_subset.items()}
+        if self.tie_dims:
+            out["tie_dims"] = True
+        if self.kv_cap is not None:
+            out["kv_cap"] = self.kv_cap
         out.update({
             "knobs": {k: list(v) for k, v in self.grids.items()},
             "fixed": fixed,
@@ -172,14 +220,19 @@ class ElasticSearchSpace:
 
     def head_pairs(self) -> List[Tuple[int, int]]:
         """(n_h, n_kv) pairs a block can take: n_kv divides n_h."""
+        if self.kv_cap is not None:
+            return [(h, min(h, self.kv_cap)) for h in self.grids["n_head"]]
         kvs = self.grids.get(KV_KNOB, [self.spec.n_kv])
         return [(h, k) for h in self.grids["n_head"] for k in kvs if h % k == 0]
 
     def log10_size(self) -> float:
         if not self.with_nkv:
-            return sum(len(self.knob_blocks(k)) * math.log10(len(self.grids[k])) for k in KNOBS)
+            return sum(len(self.knob_blocks(k)) * math.log10(len(self.grids[k])) for k in KNOBS
+                       if k not in self.tied)
         # n_h and n_kv are one joint choice per attention block, over the pairs with n_kv | n_h.
-        per_attn = len(self.head_pairs()) * len(self.grids["n_qk_head_dim"]) * len(self.grids["n_v_head_dim"])
+        per_attn = len(self.head_pairs()) * len(self.grids["n_qk_head_dim"])
+        if "n_v_head_dim" not in self.tied:
+            per_attn *= len(self.grids["n_v_head_dim"])
         return (len(self.blocks["attn"]) * math.log10(per_attn)
                 + len(self.blocks["mlp"]) * math.log10(len(self.grids["mlp_size"])))
 
@@ -212,9 +265,14 @@ class ElasticSearchSpace:
                     raise ValueError(f"{k}={v} is off the grid {self.grids[k]}")
                 for i in range(lo, hi):
                     layers[i][k] = int(v)
+        for f, lead in self.tied.items():
+            if [int(x) for x in genome[f]] != [int(x) for x in genome[lead]]:
+                raise ValueError(f"{f}={genome[f]} must equal {lead}={genome[lead]} with tie_dims")
         for i, li in enumerate(layers):
             if li["n_head"] % li[KV_KNOB]:
                 raise ValueError(f"layer {i}: n_kv={li[KV_KNOB]} does not divide n_h={li['n_head']}")
+            if self.kv_cap is not None and li[KV_KNOB] != min(li["n_head"], self.kv_cap):
+                raise ValueError(f"layer {i}: n_kv={li[KV_KNOB]} must be min(n_h={li['n_head']}, {self.kv_cap})")
         g = {"base_model": self.base_model, "n_embd": s.hidden, "block_size": self.block_size,
              "vocab_size": s.vocab, "tie_embeddings": s.tied, "mlp_variant": "swiglu",
              "use_concat_heads": True, "attention_variant": "infinite",
@@ -222,8 +280,13 @@ class ElasticSearchSpace:
         return Individual(g, layers)
 
     def _legal(self, genome: Dict[str, List[int]]) -> Dict[str, List[int]]:
-        """Lower n_kv to the largest grid value that divides n_h, in every block where it does not."""
-        if self.with_nkv:
+        """Lower n_kv to the largest grid value that divides n_h, in every block where it does not,
+        and copy each tied knob from the knob it follows."""
+        for f, lead in self.tied.items():
+            genome[f] = list(genome[lead])
+        if self.kv_cap is not None:
+            genome[KV_KNOB] = [min(int(h), self.kv_cap) for h in genome["n_head"]]
+        elif self.with_nkv:
             kvs = self.grids[KV_KNOB]
             for j, (h, k) in enumerate(zip(genome["n_head"], genome[KV_KNOB])):
                 if h % k:
@@ -259,7 +322,8 @@ class ElasticSearchSpace:
         vals = {"n_head": n_head, "n_qk_head_dim": n_qk_head_dim, "n_v_head_dim": n_v_head_dim,
                 "mlp_size": mlp_size}
         if self.with_nkv:
-            vals[KV_KNOB] = self.spec.n_kv if n_kv_group is None else n_kv_group
+            default = self.spec.n_kv if self.kv_cap is None else min(int(n_head), self.kv_cap)
+            vals[KV_KNOB] = default if n_kv_group is None else n_kv_group
         elif n_kv_group not in (None, self.spec.n_kv):
             raise ValueError(f"n_kv_group={n_kv_group} needs a space with with_nkv")
         return self.individual({k: [int(vals[k])] * len(self.knob_blocks(k)) for k in self.knobs})
@@ -276,6 +340,10 @@ class ElasticSearchSpace:
             v = dict(zip(self.knobs, vals))
             if self.with_nkv and v["n_head"] % v[KV_KNOB]:
                 continue
+            if self.kv_cap is not None and v[KV_KNOB] != min(v["n_head"], self.kv_cap):
+                continue
+            if any(v[f] != v[lead] for f, lead in self.tied.items()):
+                continue
             out.append(self.uniform(**v))
         return out
 
@@ -283,10 +351,14 @@ class ElasticSearchSpace:
 
     def sample(self) -> Individual:
         genome = {k: [self.rng.choice(self.grids[k]) for _ in self.knob_blocks(k)] for k in self.knobs}
-        if self.with_nkv:
+        if self.kv_cap is not None:
+            genome[KV_KNOB] = [min(h, self.kv_cap) for h in genome["n_head"]]
+        elif self.with_nkv:
             # n_kv first, then n_h among the head counts that n_kv divides, as the supernet sampler draws them.
             for j, kv in enumerate(genome[KV_KNOB]):
                 genome["n_head"][j] = self.rng.choice([h for h in self.grids["n_head"] if h % kv == 0])
+        for f, lead in self.tied.items():
+            genome[f] = list(genome[lead])
         return self.individual(genome)
 
     def repair(self, ind: Dict[str, Any]) -> Individual:
@@ -333,21 +405,25 @@ class ElasticSearchSpace:
         original = self.genome_of(ind)
         g = self.genome_of(ind)
         changed = False
-        for k in self.knobs:
+        free = [k for k in self.knobs if k not in self.tied and not (k == KV_KNOB and self.kv_cap is not None)]
+        for k in free:
             for j, v in enumerate(g[k]):
                 if len(self.grids[k]) > 1 and self.rng.random() < rate:
                     g[k][j] = self._mutate_value(self.grids[k], v)
                     changed = True
         if not changed:
-            k = self.rng.choice([k for k in self.knobs if len(self.grids[k]) > 1])
+            k = self.rng.choice([k for k in free if len(self.grids[k]) > 1])
             j = self.rng.randrange(len(g[k]))
             g[k][j] = self._mutate_value(self.grids[k], g[k][j])
         g = self._legal(g)
         if g == original:
             # Restoring n_kv | n_h can undo the only change, so a width gene moves instead.
-            k = self.rng.choice([k for k in ("n_qk_head_dim", "n_v_head_dim", "mlp_size") if len(self.grids[k]) > 1])
+            k = self.rng.choice([k for k in ("n_qk_head_dim", "n_v_head_dim", "mlp_size")
+                                 if k in free and len(self.grids[k]) > 1])
             j = self.rng.randrange(len(g[k]))
             g[k][j] = self._mutate_value(self.grids[k], g[k][j])
+            for f, lead in self.tied.items():
+                g[f] = list(g[lead])
         return self.individual(g)
 
 

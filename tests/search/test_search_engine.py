@@ -43,8 +43,11 @@ def test_params_match_supernet_cost_model(model, with_nkv):
 def test_shipped_configs_validate():
     # Width-only and elastic-KV spaces, each with a blocks and a uniform partition, plus the
     # grouped-query variant of both, which write_configs emits for the block partition only.
+    # The attribution ablations (_tied, _fixkv, _flextron) are written separately and covered by
+    # tests/search/test_elastic_space_attribution.py; every shipped YAML still has to load.
     paths = sorted((CONFIGS / "search_spaces").glob("*.yaml"))
-    assert len(paths) == 6 * len(MODELS)
+    ablations = ("_tied.yaml", "_fixkv.yaml", "_flextron.yaml")
+    assert len([p for p in paths if not p.name.endswith(ablations)]) == 6 * len(MODELS)
     for p in paths:
         ElasticSearchSpace.from_yaml(str(p))
 

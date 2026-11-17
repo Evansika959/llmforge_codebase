@@ -23,6 +23,8 @@ from llmforge.supernet.elastic import (add_elastic_temperature, add_kv_alignment
 from llmforge.supernet.search.nsga import load_supernet
 from llmforge.supernet.space import ElasticConfig
 from llmforge.supernet.paths import RUNS
+from llmforge.supernet.eval.protocol import (base_sha256, cfg_sha256, ckpt_sha256, needs_score,
+                                             save_scores)
 from llmforge.paths import HELDOUT
 
 ap = argparse.ArgumentParser()
@@ -40,12 +42,30 @@ ap.add_argument("--out", default=f"{RUNS}/gt135_het_nll_ctx1024.json")
 ap.add_argument("--base", action="store_true", help="also score the published checkpoint")
 ap.add_argument("--supernet", default=None, help="supernet checkpoint whose untrained slices to score")
 ap.add_argument("--set", default=None, help="architecture set scored as slices of --supernet")
+ap.add_argument("--docs", type=int, default=None,
+                help="score with the search's protocol instead of concatenated windows: held-out "
+                     "documents [skip, skip + docs), each truncated to --ctx tokens, as "
+                     "make_evaluator does. The search re-scores fronts on --docs 64 --skip 32. "
+                     "Off by default.")
+ap.add_argument("--skip", type=int, default=0, help="first held-out document with --docs")
+ap.add_argument("--force", action="store_true",
+                help="rescore every model even when its stored weights hash and config match")
+ap.add_argument("--base-slices", action="store_true",
+                help="also score every --set architecture as a slice of the published checkpoint "
+                     "(the starting point of groundtruth_het.py --init base --base-align), stored as "
+                     "baseslice:<name>. Off by default.")
 a = ap.parse_args()
 
 spec = SPECS[a.model]; order = pair_order_for(spec)
 tok = AutoTokenizer.from_pretrained(spec.repo)
 texts = json.load(open(a.texts))[:a.n_texts]
-if a.ctx > 768:
+if a.docs is not None:
+    from llmforge.supernet.data.heldout import heldout_texts
+    from llmforge.supernet.eval.protocol import search_protocol_ids
+    ids = search_protocol_ids(tok, heldout_texts(a.docs, skip=a.skip), max_len=a.ctx)
+    if len(ids) != a.docs:
+        raise SystemExit(f"expected {a.docs} scorable documents, got {len(ids)}")
+elif a.ctx > 768:
     flat = []
     for t in texts:
         flat += tok(t, add_special_tokens=False).input_ids
@@ -54,13 +74,21 @@ if a.ctx > 768:
 else:
     ids = [tok(t, return_tensors="pt", truncation=True, max_length=a.ctx).input_ids.to("cuda")
            for t in texts]
-print(f"{len(ids)} windows of {a.ctx}")
+print(f"{len(ids)} {'documents' if a.docs is not None else 'windows'} of {a.ctx}")
 
 res = json.load(open(a.out)) if os.path.exists(a.out) else {}
 units = {}
 
 
-def score(m, name, A):
+def need(name, sha, A):
+    """Rescore when the stored entry came from other weights or another config, or with --force."""
+    cfg = cfg_sha256(A)
+    if name in res and needs_score(res, name, sha, cfg) and not a.force:
+        print(f"  rescoring {name}: stored entry is from other weights or config", flush=True)
+    return needs_score(res, name, sha, cfg, a.force)
+
+
+def score(m, name, A, sha):
     per = []
     with torch.no_grad():
         for x in ids:
@@ -73,36 +101,52 @@ def score(m, name, A):
     bs = [sum(per[j][0] for j in k) / sum(per[j][1] for j in k)
           for k in (rng.integers(0, len(per), len(per)) for _ in range(1000))]
     res[name] = {"nll": tot / cnt, "se": float(np.std(bs)), "n_units": len(per),
+                 "model_sha256": sha, "cfg_sha256": cfg_sha256(A),
+                 **({"docs": [a.skip, a.skip + a.docs]} if a.docs is not None else {}),
                  **{k: A[k] for k in ("w", "kv", "het", "slice_loss", "slice_loss_val", "init") if k in A}}
     units[name] = [(float(s), float(c)) for s, c in per]
     print(f"  {name:10} w={A.get('w', 1.0):.3f} het={A.get('het',0):.3f} nll={res[name]['nll']:.4f} "
           f"+-{res[name]['se']:.4f}  (slice said {A.get('slice_loss', float('nan')):.4f})", flush=True)
-    json.dump(res, open(a.out, "w"), indent=1)
-    json.dump(units, open(a.out.replace(".json", "_units.json"), "w"))
+    save_scores(a.out, {name: res[name]}, {name: units[name]}, {name: sha})
 
 
 # The published checkpoint first, before enable_elastic patches the model class.
-if a.base and "base" not in res:
+SHA_BASE = base_sha256(spec.repo) if (a.base or a.base_slices) else None
+if a.base and need("base", SHA_BASE, {}):
     m = AutoModelForCausalLM.from_pretrained(spec.repo, torch_dtype=torch.bfloat16,
                                              attn_implementation="eager").to("cuda").eval()
     m.config.use_cache = False
-    score(m, "base", {})
+    score(m, "base", {}, SHA_BASE)
     del m; torch.cuda.empty_cache()
 
 if a.supernet and a.set:
-    todo = [A for A in json.load(open(a.set)) if f"slice:{A['name']}" not in res]
+    sha_sn = ckpt_sha256(a.supernet)
+    todo = [A for A in json.load(open(a.set)) if need(f"slice:{A['name']}", sha_sn, A)]
     if todo:
         m, _, _ = load_supernet(a.supernet, spec)
         for A in todo:
             set_elastic_config(m, A["d_qk"], A["d_v"], order, n_h=A["n_h"], d_mlp=A["d_mlp"], n_kv=A.get("n_kv"))
-            score(m, f"slice:{A['name']}", A)
+            score(m, f"slice:{A['name']}", A, sha_sn)
+        del m; torch.cuda.empty_cache()
+
+if a.base_slices and a.set:
+    todo = [A for A in json.load(open(a.set)) if need(f"baseslice:{A['name']}", SHA_BASE, A)]
+    if todo:
+        from llmforge.supernet.eval.protocol import load_base_elastic
+        m = load_base_elastic(spec)
+        for A in todo:
+            set_elastic_config(m, A["d_qk"], A["d_v"], order, n_h=A["n_h"], d_mlp=A["d_mlp"], n_kv=A.get("n_kv"))
+            score(m, f"baseslice:{A['name']}", A, SHA_BASE)
         del m; torch.cuda.empty_cache()
 
 for d in sorted(os.listdir(a.dir)):
     p = os.path.join(a.dir, d)
-    if not os.path.isfile(os.path.join(p, "arch.json")) or d in res:
+    if not os.path.isfile(os.path.join(p, "arch.json")):
         continue
     A = json.load(open(os.path.join(p, "arch.json")))
+    sha = ckpt_sha256(os.path.join(p, "model.safetensors"))
+    if not need(d, sha, A):
+        continue
     m = AutoModelForCausalLM.from_pretrained(spec.repo, torch_dtype=torch.bfloat16,
                                              attn_implementation="eager").to("cuda").eval()
     enable_elastic(m); set_elastic_backend("eager"); m.config.use_cache = False
@@ -117,6 +161,6 @@ for d in sorted(os.listdir(a.dir)):
     assert len(miss) <= 1, f"{d}: {len(miss)} missing tensors"
     assert not unexp, f"{d}: {len(unexp)} unexpected tensors, e.g. {unexp[:3]}"
     set_elastic_config(m, A["d_qk"], A["d_v"], order, n_h=A["n_h"], d_mlp=A["d_mlp"], n_kv=A.get("n_kv"))
-    score(m, d, A)
+    score(m, d, A, sha)
     del m; torch.cuda.empty_cache()
 print(f"wrote {a.out} ({len(res)} entries)")

@@ -142,6 +142,78 @@ def evaluate(student, toks, mask, pos, order, cfgs):
     return out
 
 
+def checkpoint_bytes(model):
+    """Upper estimate of one checkpoint: the weights in their dtype plus two fp32 Adam moments."""
+    return sum(p.numel() * (p.element_size() + 8) for p in model.parameters())
+
+
+def check_free_space(path, min_free_gb, need_bytes=0):
+    """Raise if writing `need_bytes` under `path` would leave less than `min_free_gb` GB free."""
+    import shutil
+    free = shutil.disk_usage(path).free
+    if free - need_bytes < min_free_gb * 1e9:
+        raise SystemExit(f"[disk] {free / 1e9:.1f} GB free, a checkpoint needs about "
+                         f"{need_bytes / 1e9:.1f} GB, floor is {min_free_gb:.0f} GB -- not saving")
+    return free
+
+
+def rope_pair_order(spec, rope_order="interleaved"):
+    """The rotary pair order for --rope-order: interleaved high/low frequency, or a plain prefix."""
+    if rope_order == "interleaved":
+        return pair_order_for(spec)
+    if rope_order == "prefix":
+        return build_pair_order("natural", spec.head_dim // 2)
+    raise ValueError(rope_order)
+
+
+def optimizer_groups(student, align, lr, weight_decay, ang_lr):
+    """AdamW parameter groups. Under align=learned the alignment angles get their own group;
+    under align=none or procrustes they are frozen and left out of the optimizer entirely, so no
+    gradient, decay or optimizer state can move them."""
+    ang = [q for nm, q in student.named_parameters() if "kv_ang" in nm]
+    rest = [q for nm, q in student.named_parameters() if "kv_ang" not in nm]
+    groups = [{"params": rest, "lr": lr, "weight_decay": weight_decay}]
+    if align != "learned":
+        for q in ang:
+            q.requires_grad_(False)
+        if ang:
+            print(f"[nkv] {sum(q.numel() for q in ang):,} alignment angles FROZEN ({align}), "
+                  f"max |angle| {max(q.abs().max().item() for q in ang):.4f}", flush=True)
+    elif ang:
+        groups.append({"params": ang, "lr": ang_lr, "weight_decay": 0.0})
+        print(f"[nkv] {sum(q.numel() for q in ang):,} alignment angles at lr {ang_lr}, no decay",
+              flush=True)
+    return groups
+
+
+def _fit_procrustes(student, spec, order, ratios, a):
+    """Fit the alignment angles in closed form on calibration batches (align=procrustes).
+
+    The batches come from the training mix under a seed no training or probe stream uses, so the
+    held-out documents stay untouched. The student is still the base model at this point.
+    """
+    from ..elastic.align_init import collect_kv, fit_procrustes_alignment
+    cal = DataMix(ratios=ratios, seed=a.seed + 7919)
+    S = cal.seqlen
+
+    def batches():
+        for _ in range(a.procrustes_cal_batches):
+            toks, segs = cal.batch(a.batch)
+            mask, pos = build_docaware(segs, S, device="cuda", dtype=torch.bfloat16, neg=-1e9)
+            yield toks.to("cuda"), mask, pos
+
+    set_elastic_config(student, spec.head_dim, spec.head_dim, order)
+    was = student.training
+    student.eval()
+    rep = fit_procrustes_alignment(student, collect_kv(student, batches(), order))
+    student.train(was)
+    kb, ka = sum(r["k_before"] for r in rep), sum(r["k_after"] for r in rep)
+    vb, va = sum(r["v_before"] for r in rep), sum(r["v_after"] for r in rep)
+    print(f"[procrustes] {a.procrustes_cal_batches}x{a.batch} calibration sequences | merge error "
+          f"k {kb:.4g} -> {ka:.4g} ({ka / max(kb, 1e-12):.3f}x) | "
+          f"v {vb:.4g} -> {va:.4g} ({va / max(vb, 1e-12):.3f}x)", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="qwen3-4b", choices=sorted(SPECS))
@@ -217,6 +289,33 @@ def main():
     ap.add_argument("--ckpt-every", type=int, default=1000)
     ap.add_argument("--ckpt-dir", default=None)
     ap.add_argument("--seed", type=int, default=0)
+    # Mechanism ablations. The defaults are the method; each alternative removes one conversion
+    # mechanism so its contribution can be measured after training rather than only at conversion.
+    ap.add_argument("--align", choices=["learned", "none", "procrustes"], default="learned",
+                    help="KV alignment angles. 'learned' (default): start at zero and train them. "
+                         "'none': fix them at zero (identity) and never update them, so n_kv "
+                         "pooling is a plain mean. 'procrustes': fit them once in closed form on "
+                         "calibration batches from the training mix, then freeze them.")
+    ap.add_argument("--procrustes-cal-batches", type=int, default=4,
+                    help="calibration batches of --batch sequences for --align procrustes")
+    ap.add_argument("--rope-order", choices=["interleaved", "prefix"], default="interleaved",
+                    help="Which rotary pairs a narrowed d_qk keeps. 'interleaved' (default) "
+                         "alternates highest and lowest frequency; 'prefix' keeps the "
+                         "highest-frequency pairs first. Recorded in run.json, and "
+                         "search.nsga.load_supernet reads it back.")
+    ap.add_argument("--space", default=None,
+                    help="Search-space YAML (configs/search_spaces/*.yaml) whose knob grids the "
+                         "sampler and in-training probes are restricted to, e.g. the GQA-only "
+                         "space. Default: the model's full grids.")
+    ap.add_argument("--stop-after", type=int, default=None,
+                    help="Stop after this many optimizer steps while keeping the schedule of "
+                         "--steps; no checkpoint or final eval. For timing runs.")
+    ap.add_argument("--min-free-gb", type=float, default=None,
+                    help="Refuse to write a checkpoint if the disk holding --ckpt-dir would be "
+                         "left with less than this many GB free (estimated from the parameter "
+                         "and optimizer-state sizes). Default: no check.")
+    ap.add_argument("--timing-log", default=None,
+                    help="Write per-step wall time (after a CUDA sync) and peak memory as JSONL.")
     a = ap.parse_args()
 
     spec = SPECS[a.model]
@@ -232,7 +331,14 @@ def main():
     torch.manual_seed(a.seed)
     rng = random.Random(a.seed)
     dev = "cuda"
-    order = pair_order_for(spec)
+    order = rope_pair_order(spec, a.rope_order)
+    sspec = spec
+    if a.space:
+        from ..elastic.sampler import restrict_spec
+        sspec = restrict_spec(spec, a.space)
+        print(f"[space] {a.space}: d_qk/d_v {sspec.qk_grid} | n_h {sspec.nh_grid} | "
+              f"n_kv {sspec.nkv_grid} | d_mlp {sspec.mlp_grid}", flush=True)
+    print(f"[ablation] align {a.align} | rope order {a.rope_order} {order}", flush=True)
 
     print(f"[spec] {spec.key} {spec.n_params()/1e9:.3f}B | {spec.n_layers}L "
           f"{spec.n_q}Q/{spec.n_kv}KV hd{spec.head_dim} mlp{spec.d_mlp} | grid {spec.qk_grid}",
@@ -251,19 +357,15 @@ def main():
     # the replication floor. Fitting them properly with their own optimiser is worth 0.25-0.32
     # nats. Weight decay is also wrong for them: decay pulls a rotation toward the identity, which
     # is precisely the configuration the mechanism exists to leave.
-    ang = [q for nm, q in student.named_parameters() if "kv_ang" in nm]
-    rest = [q for nm, q in student.named_parameters() if "kv_ang" not in nm]
-    groups = [{"params": rest, "lr": a.lr, "weight_decay": a.weight_decay}]
-    if ang:
-        groups.append({"params": ang, "lr": a.ang_lr, "weight_decay": 0.0})
-        print(f"[nkv] {sum(q.numel() for q in ang):,} alignment angles at lr {a.ang_lr}, no decay",
-              flush=True)
+    if a.align == "procrustes" and a.with_nkv:
+        _fit_procrustes(student, spec, order, ratios, a)
+    groups = optimizer_groups(student, a.align, a.lr, a.weight_decay, a.ang_lr)
     opt = torch.optim.AdamW(groups, lr=a.lr, betas=(0.9, 0.95), weight_decay=a.weight_decay)
     _ang_base = [g.get("lr", a.lr) for g in opt.param_groups]
     dm = DataMix(ratios=ratios, seed=a.seed)
     S = dm.seqlen
 
-    cfgs = eval_configs_for(spec, random.Random(1234), ab=(a.knobs == "ab"),
+    cfgs = eval_configs_for(sspec, random.Random(1234), ab=(a.knobs == "ab"),
                             with_nkv=a.with_nkv)
     ev = DataMix(ratios=ratios, seed=a.seed + 9973)
     etoks, esegs = ev.batch(a.eval_batch)
@@ -280,7 +382,14 @@ def main():
           flush=True)
     t0 = time.time()
     log_eval(0)
+    tlog = open(a.timing_log, "a") if a.timing_log else None
+    if tlog:
+        torch.cuda.synchronize()
+        tlog.write(json.dumps({"event": "eval0", "seconds": time.time() - t0}) + "\n")
+    t_prev = time.time()
     for step in range(a.steps):
+        if a.stop_after is not None and step >= a.stop_after:
+            break
         lr = a.lr if a.const_lr else cosine_warmup(step, a.steps, a.warmup, a.lr)
         for gi, g in enumerate(opt.param_groups):
             # Each group follows the same schedule SHAPE from its own base, so the angle group
@@ -296,11 +405,11 @@ def main():
                 f = ElasticConfig.full(spec)
                 configs = [(f.d_qk, f.d_v, f.n_h, f.d_mlp)]
             elif a.knobs == "ab":
-                configs = sandwich_ab(step, a.steps, spec, K=a.K, with_nkv=a.with_nkv,
+                configs = sandwich_ab(step, a.steps, sspec, K=a.K, with_nkv=a.with_nkv,
                                       anneal_frac=a.anneal_frac, rng=rng, blocks=a.blocks)
             else:
                 configs = [(qk, v, None, None) for qk, v in
-                           sandwich(step, a.steps, n=spec.n_layers, grid=spec.qk_grid,
+                           sandwich(step, a.steps, n=spec.n_layers, grid=sspec.qk_grid,
                                     K=a.K, anneal_frac=a.anneal_frac, rng=rng)]
             scale = 1.0 / (a.accum * len(configs))
             with torch.no_grad():
@@ -332,6 +441,16 @@ def main():
         losses = [x / a.accum for x in losses]
         gn = torch.nn.utils.clip_grad_norm_(student.parameters(), a.clip)
         opt.step()
+        if tlog:
+            torch.cuda.synchronize()
+            now = time.time()
+            tlog.write(json.dumps({"step": step, "seconds": now - t_prev,
+                                   "tokens": a.batch * a.accum * S,
+                                   "peak_alloc_gib": torch.cuda.max_memory_allocated() / 2**30,
+                                   "peak_reserved_gib": torch.cuda.max_memory_reserved() / 2**30})
+                       + "\n")
+            tlog.flush()
+            t_prev = now
 
         if step % a.log_every == 0 or step == a.steps - 1:
             dt = (time.time() - t0) / (step + 1)
@@ -346,6 +465,8 @@ def main():
             log_eval(step + 1)
         if a.ckpt_every and (step + 1) % a.ckpt_every == 0:
             d = os.path.join(ckpt_dir, f"step{step+1}")
+            if a.min_free_gb is not None:
+                check_free_space(ckpt_dir, a.min_free_gb, checkpoint_bytes(student))
             student.save_pretrained(d)
             torch.save(opt.state_dict(), os.path.join(d, "optim.pt"))
             # Every argument, so a checkpoint can be traced to the run that made it. This file is
@@ -353,6 +474,12 @@ def main():
             # the supernet project treats an n_kv checkpoint without run.json as unquotable.
             json.dump(vars(a), open(os.path.join(d, "run.json"), "w"), indent=1, default=str)
 
+    if tlog:
+        tlog.close()
+    if a.stop_after is not None and a.stop_after < a.steps:
+        print(f"stopped after {a.stop_after} steps in {time.time()-t0:.0f}s (--stop-after)",
+              flush=True)
+        return
     log_eval(a.steps)
     student.save_pretrained(os.path.join(ckpt_dir, "final"))
     print(f"done {a.steps} steps in {time.time()-t0:.0f}s", flush=True)
